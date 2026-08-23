@@ -1,0 +1,146 @@
+@extends('layouts.app')
+@section('title', $peserta->nama)
+@section('page-title', 'Profil Peserta')
+
+@section('topbar-actions')
+<a href="{{ route('leaderboard') }}" class="btn btn-outline btn-sm">← Leaderboard</a>
+@if(auth()->user()->isAdmin())
+  <a href="{{ route('peserta.edit', $peserta) }}" class="btn btn-outline btn-sm">Edit</a>
+@endif
+@endsection
+
+@section('content')
+<div style="display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start">
+
+  {{-- KARTU IDENTITAS --}}
+  <div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="text-align:center;padding:12px 0 16px">
+        <div style="width:64px;height:64px;border-radius:50%;background:#eef2ff;color:#4f46e5;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;margin:0 auto 12px">
+          {{ strtoupper(collect(explode(' ',$peserta->nama))->slice(1)->map(fn($w)=>$w[0]??'')->join('')) }}
+        </div>
+        <div style="font-size:16px;font-weight:600">{{ $peserta->nama }}</div>
+        <div style="font-size:12px;color:#aaa;margin-top:2px">{{ $peserta->pangkat }}</div>
+      </div>
+      <div style="border-top:1px solid #f0f0f5;padding-top:14px">
+        <table style="width:100%;font-size:12px">
+          <tr><td style="color:#aaa;padding:4px 0">NRP</td><td style="text-align:right;font-weight:500;padding:4px 0">{{ $peserta->nrp }}</td></tr>
+          <tr><td style="color:#aaa;padding:4px 0">Nosis</td><td style="text-align:right;font-weight:500;padding:4px 0">{{ $peserta->nosis }}</td></tr>
+          <tr><td style="color:#aaa;padding:4px 0">Angkatan</td><td style="text-align:right;font-weight:500;padding:4px 0">{{ $peserta->angkatan->nomor_angkatan }}</td></tr>
+          <tr><td style="color:#aaa;padding:4px 0">Jurusan</td><td style="text-align:right;font-weight:500;padding:4px 0">{{ $peserta->angkatan->jurusan }}</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Statistik keseluruhan</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:#f4f5f7;border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:#4f46e5">{{ $rataRata }}</div>
+          <div style="font-size:11px;color:#888">Rata-rata</div>
+        </div>
+        <div style="background:#f4f5f7;border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:#059669">{{ $rank }}</div>
+          <div style="font-size:11px;color:#888">Rank / {{ $totalPeserta }}</div>
+        </div>
+        <div style="background:#f4f5f7;border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:700">{{ round($nilaiHistory->max('total'),1) }}</div>
+          <div style="font-size:11px;color:#888">Tertinggi</div>
+        </div>
+        <div style="background:#f4f5f7;border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:700">{{ $nilaiHistory->count() }}</div>
+          <div style="font-size:11px;color:#888">Periode</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{-- GRAFIK & HISTORY --}}
+  <div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;margin-bottom:14px">
+        <span class="card-title" style="margin:0">Progres nilai</span>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary" id="btn-line" onclick="switchChart('line')">Garis</button>
+          <button class="btn btn-sm btn-outline" id="btn-bar" onclick="switchChart('bar')">Batang</button>
+        </div>
+      </div>
+      <div style="position:relative;height:200px">
+        <canvas id="chart-line"></canvas>
+        <canvas id="chart-bar" style="display:none"></canvas>
+      </div>
+      <div style="display:flex;justify-content:center;gap:16px;margin-top:10px;font-size:11px;color:#888">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#4f46e5;display:inline-block;border-radius:2px"></span>Total</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#059669;display:inline-block;border-radius:2px"></span>Akademik</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#d97706;display:inline-block;border-radius:2px"></span>Fisik</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#dc2626;display:inline-block;border-radius:2px"></span>Sikap</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#7c3aed;display:inline-block;border-radius:2px"></span>Kepemimpinan</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Riwayat nilai per periode</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Periode</th>
+              <th style="text-align:center">Akademik</th>
+              <th style="text-align:center">Fisik</th>
+              <th style="text-align:center">Sikap</th>
+              <th style="text-align:center">Kepemimpinan</th>
+              <th style="text-align:right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @forelse($nilaiHistory as $n)
+            <tr>
+              <td>{{ $n->periode->label }}</td>
+              <td style="text-align:center">{{ $n->akademik }}</td>
+              <td style="text-align:center">{{ $n->fisik }}</td>
+              <td style="text-align:center">{{ $n->sikap }}</td>
+              <td style="text-align:center">{{ $n->kepemimpinan }}</td>
+              <td style="text-align:right;font-weight:600">{{ round($n->total,1) }}</td>
+            </tr>
+            @empty
+            <tr><td colspan="6"><div class="empty-state" style="padding:24px">Belum ada nilai.</div></td></tr>
+            @endforelse
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+@endsection
+
+@push('scripts')
+<script>
+const labels = @json($chartLabels);
+const datasets = [
+  {label:'Total',data:@json($chartTotal),borderColor:'#4f46e5',backgroundColor:'rgba(79,70,229,.08)',tension:.3,pointRadius:4,fill:true},
+  {label:'Akademik',data:@json($chartAkd),borderColor:'#059669',backgroundColor:'transparent',tension:.3,pointRadius:3},
+  {label:'Fisik',data:@json($chartFis),borderColor:'#d97706',backgroundColor:'transparent',tension:.3,pointRadius:3},
+  {label:'Sikap',data:@json($chartSik),borderColor:'#dc2626',backgroundColor:'transparent',tension:.3,pointRadius:3},
+  {label:'Kepemimpinan',data:@json($chartKep),borderColor:'#7c3aed',backgroundColor:'transparent',tension:.3,pointRadius:3},
+];
+const baseOpts = {
+  responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false}},
+  scales:{
+    x:{grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#888',font:{size:11}}},
+    y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#888',font:{size:11}},min:0,max:100}
+  }
+};
+const ctxLine = document.getElementById('chart-line').getContext('2d');
+const ctxBar  = document.getElementById('chart-bar').getContext('2d');
+new Chart(ctxLine, {type:'line',data:{labels,datasets},options:baseOpts});
+new Chart(ctxBar,  {type:'bar', data:{labels,datasets:[{...datasets[0],backgroundColor:'#818cf8',borderRadius:5,borderSkipped:false,fill:false}]},options:baseOpts});
+
+function switchChart(t) {
+  document.getElementById('chart-line').style.display = t==='line'?'block':'none';
+  document.getElementById('chart-bar').style.display  = t==='bar' ?'block':'none';
+  document.getElementById('btn-line').className = t==='line'?'btn btn-sm btn-primary':'btn btn-sm btn-outline';
+  document.getElementById('btn-bar').className  = t==='bar' ?'btn btn-sm btn-primary':'btn btn-sm btn-outline';
+}
+</script>
+@endpush

@@ -1,0 +1,152 @@
+@extends('layouts.app')
+@section('title', 'Leaderboard')
+@section('page-title', 'Leaderboard')
+
+@section('topbar-actions')
+<a href="{{ route('leaderboard.ekspor', array_merge(request()->query(), ['angkatan_id'=>$angkatan?->id, 'periode_id'=>$periodeId])) }}"
+   class="btn btn-outline btn-sm">⬇ Ekspor XLSX</a>
+@endsection
+
+@section('content')
+<div class="metric-grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="metric-card"><div class="metric-label">Total peserta</div><div class="metric-value">{{ $totalPeserta }}</div></div>
+  <div class="metric-card"><div class="metric-label">Periode berjalan</div><div class="metric-value">{{ $periodeCount }}</div></div>
+  <div class="metric-card"><div class="metric-label">Rata-rata angkatan</div><div class="metric-value">{{ $rataAngkatan }}</div></div>
+</div>
+
+<div class="card">
+  <form method="GET" action="{{ route('leaderboard') }}" id="filter-form">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
+
+      <div>
+        <label style="font-size:11px;margin-bottom:3px">Cari</label>
+        <input type="text" name="q" value="{{ $q }}" placeholder="Nama / NRP..." style="width:160px">
+      </div>
+
+      @if(!auth()->user()->isPeserta())
+      <div>
+        <label style="font-size:11px;margin-bottom:3px">Angkatan</label>
+        <select name="angkatan_id" onchange="this.form.submit()">
+          @foreach($allAngkatan as $ang)
+            <option value="{{ $ang->id }}" {{ $ang->id == $angkatan?->id ? 'selected' : '' }}>
+              {{ $ang->nomor_angkatan }}
+            </option>
+          @endforeach
+        </select>
+      </div>
+      @endif
+
+      <div>
+        <label style="font-size:11px;margin-bottom:3px">Periode</label>
+        <select name="periode_id" onchange="this.form.submit()">
+          @foreach($periodes as $per)
+            <option value="{{ $per->id }}" {{ $per->id == $periodeId ? 'selected' : '' }}>
+              {{ $per->label }}
+            </option>
+          @endforeach
+        </select>
+      </div>
+
+      <div>
+        <label style="font-size:11px;margin-bottom:3px">Urutkan</label>
+        <select name="aspek" onchange="this.form.submit()">
+          @foreach(['total'=>'Total','akd'=>'Akademik','fis'=>'Fisik','sik'=>'Sikap','kep'=>'Kepemimpinan'] as $val=>$lbl)
+            <option value="{{ $val }}" {{ $aspek==$val?'selected':'' }}>{{ $lbl }}</option>
+          @endforeach
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-outline btn-sm">Cari</button>
+    </div>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:40px">No</th>
+          <th>Nama</th>
+          <th>NRP</th>
+          <th>Pangkat</th>
+          <th style="text-align:center">Akd</th>
+          <th style="text-align:center">Fis</th>
+          <th style="text-align:center">Sik</th>
+          <th style="text-align:center">Kep</th>
+          <th style="text-align:right">Total</th>
+          <th style="text-align:center">Tren</th>
+          <th style="width:90px">Progres</th>
+        </tr>
+      </thead>
+      <tbody>
+        @php $maxTotal = $sorted->max('n_total') ?: 100; @endphp
+        @forelse($paginated as $i => $p)
+        @php
+          $rank    = ($page - 1) * $perPage + $i + 1;
+          $isTop3  = $rank <= 3 && $page === 1;
+          $pct     = $maxTotal > 0 ? round($p->n_total / $maxTotal * 100) : 0;
+        @endphp
+        <tr style="{{ $isTop3 ? 'background:#fafafe' : '' }};cursor:pointer"
+            onclick="window.location='{{ route('peserta.show', $p) }}'">
+          <td>
+            @if($rank===1) <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#fef3c7;color:#92400e;font-weight:700;font-size:12px">1</span>
+            @elseif($rank===2) <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#dbeafe;color:#1e40af;font-weight:700;font-size:12px">2</span>
+            @elseif($rank===3) <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#d1fae5;color:#065f46;font-weight:700;font-size:12px">3</span>
+            @else <span style="font-size:13px;color:#aaa;padding-left:4px">{{ $rank }}</span>
+            @endif
+          </td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:30px;height:30px;border-radius:50%;background:#eef2ff;color:#4f46e5;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">
+                {{ strtoupper(collect(explode(' ',$p->nama))->slice(1)->map(fn($w)=>$w[0]??'')->join('')) }}
+              </div>
+              <span style="{{ $isTop3?'font-weight:500':'' }}">{{ $p->nama }}</span>
+              @if(!$p->aktif)<span class="badge badge-red" style="margin-left:4px">Nonaktif</span>@endif
+            </div>
+          </td>
+          <td style="color:#aaa">{{ $p->nrp }}</td>
+          <td><span class="badge badge-blue">{{ $p->pangkat }}</span></td>
+          <td style="text-align:center">{{ $p->n_akd }}</td>
+          <td style="text-align:center">{{ $p->n_fis }}</td>
+          <td style="text-align:center">{{ $p->n_sik }}</td>
+          <td style="text-align:center">{{ $p->n_kep }}</td>
+          <td style="text-align:right;font-weight:600">{{ $p->n_total }}</td>
+          <td style="text-align:center">
+            @if($p->tren>0)<span class="tren-up">▲ naik</span>
+            @elseif($p->tren<0)<span class="tren-dn">▼ turun</span>
+            @else<span class="tren-eq">— tetap</span>@endif
+          </td>
+          <td><div class="progress-bar"><div class="progress-fill" style="width:{{ $pct }}%"></div></div></td>
+        </tr>
+        @empty
+        <tr><td colspan="11"><div class="empty-state">Belum ada data nilai untuk periode ini.</div></td></tr>
+        @endforelse
+      </tbody>
+    </table>
+  </div>
+
+  {{-- Pagination --}}
+  @if($lastPage > 1)
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px">
+    <span style="font-size:12px;color:#aaa">
+      Menampilkan {{ ($page-1)*$perPage+1 }}–{{ min($page*$perPage,$total) }} dari {{ $total }} peserta
+    </span>
+    <div style="display:flex;gap:4px">
+      @if($page > 1)
+        <a href="{{ request()->fullUrlWithQuery(['page'=>$page-1]) }}" class="btn btn-outline btn-sm">← Prev</a>
+      @endif
+      @for($i=1; $i<=$lastPage; $i++)
+        <a href="{{ request()->fullUrlWithQuery(['page'=>$i]) }}"
+           class="btn btn-sm {{ $i==$page ? 'btn-primary' : 'btn-outline' }}">{{ $i }}</a>
+      @endfor
+      @if($page < $lastPage)
+        <a href="{{ request()->fullUrlWithQuery(['page'=>$page+1]) }}" class="btn btn-outline btn-sm">Next →</a>
+      @endif
+    </div>
+  </div>
+  @else
+  <div style="font-size:12px;color:#aaa;margin-top:12px">
+    Menampilkan {{ $total }} peserta
+  </div>
+  @endif
+</div>
+@endsection

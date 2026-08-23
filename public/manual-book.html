@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="favicon.png">
+<title>Manual Book — SIPP</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:    #0f1117;
+  --muted:  #6b7280;
+  --line:   #e5e7eb;
+  --bg:     #fafaf9;
+  --white:  #ffffff;
+  --indigo: #4338ca;
+  --indigo-light: #eef2ff;
+  --green:  #059669;
+  --amber:  #d97706;
+  --red:    #dc2626;
+  --sidebar-w: 280px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  position: fixed; top: 0; left: 0;
+  width: var(--sidebar-w); height: 100vh;
+  background: var(--white);
+  border-right: 1px solid var(--line);
+  overflow-y: auto; z-index: 100;
+  display: flex; flex-direction: column;
+}
+.sidebar-header { padding: 28px 24px 20px; border-bottom: 1px solid var(--line); }
+.sidebar-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.logo-mark {
+  width: 36px; height: 36px; object-fit: contain; flex-shrink: 0;
+  border-radius: 8px;
+}
+.logo-text { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--ink); }
+.sidebar-sub { font-size: 12px; color: var(--muted); }
+.sidebar-nav { flex: 1; padding: 16px 0; }
+.nav-section-label {
+  font-size: 10px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+  padding: 10px 24px 4px;
+}
+.nav-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 24px; font-size: 13px; color: #4b5563;
+  text-decoration: none; border-left: 2px solid transparent;
+  transition: all .15s; cursor: pointer;
+}
+.nav-link.sub { padding-left: 40px; font-size: 12px; }
+.nav-link:hover { background: var(--indigo-light); color: var(--indigo); border-left-color: var(--indigo); }
+.nav-link.active { background: var(--indigo-light); color: var(--indigo); border-left-color: var(--indigo); font-weight: 500; }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; opacity: .5; }
+.sidebar-footer { padding: 16px 24px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); }
+
+/* ── MAIN ── */
+.main { margin-left: var(--sidebar-w); min-height: 100vh; }
+
+/* ── HERO ── */
+.hero {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%);
+  padding: 80px 64px; color: white; position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; top: -40%; right: -10%;
+  width: 500px; height: 500px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(129,140,248,.25) 0%, transparent 70%);
+}
+.hero::after {
+  content: ''; position: absolute; bottom: -30%; left: 20%;
+  width: 300px; height: 300px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(99,102,241,.2) 0%, transparent 70%);
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+  border-radius: 99px; padding: 4px 12px; font-size: 12px;
+  font-weight: 500; margin-bottom: 20px; position: relative; z-index: 1;
+}
+.hero h1 { font-family: 'DM Serif Display', serif; font-size: 48px; line-height: 1.1; margin-bottom: 16px; position: relative; z-index: 1; }
+.hero p { font-size: 18px; opacity: .8; max-width: 640px; margin-bottom: 32px; position: relative; z-index: 1; }
+.role-cards { display: flex; gap: 12px; flex-wrap: wrap; position: relative; z-index: 1; }
+.role-card {
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+  border-radius: 10px; padding: 14px 18px; min-width: 140px; transition: background .2s;
+}
+.role-card:hover { background: rgba(255,255,255,.18); cursor: pointer; }
+.role-card .role-icon { font-size: 20px; margin-bottom: 6px; }
+.role-card .role-name { font-size: 13px; font-weight: 600; }
+.role-card .role-desc { font-size: 11px; opacity: .7; }
+
+/* ── CONTENT ── */
+.content { padding: 48px 64px; max-width: 920px; }
+.section { margin-bottom: 64px; scroll-margin-top: 24px; }
+.section-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--indigo-light); color: var(--indigo);
+  border-radius: 99px; padding: 3px 10px; font-size: 11px;
+  font-weight: 600; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 10px;
+}
+.section h2 { font-family: 'DM Serif Display', serif; font-size: 32px; color: var(--ink); margin-bottom: 8px; line-height: 1.2; }
+.section-lead { font-size: 16px; color: var(--muted); margin-bottom: 28px; max-width: 640px; }
+.divider { height: 1px; background: var(--line); margin: 48px 0; }
+
+.subsection { margin-bottom: 36px; scroll-margin-top: 24px; }
+.subsection h3 { font-size: 18px; font-weight: 600; color: var(--ink); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.step-num {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--indigo);
+  color: white; font-size: 12px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+/* ── STEPS ── */
+.steps { display: flex; flex-direction: column; gap: 0; position: relative; }
+.steps::before { content: ''; position: absolute; left: 19px; top: 28px; width: 2px; bottom: 28px; background: var(--line); }
+.step { display: flex; gap: 16px; padding: 0 0 24px; position: relative; }
+.step-dot {
+  width: 40px; height: 40px; border-radius: 50%; background: var(--white);
+  border: 2px solid var(--indigo); display: flex; align-items: center;
+  justify-content: center; font-size: 13px; font-weight: 700; color: var(--indigo); flex-shrink: 0; z-index: 1;
+}
+.step-body { flex: 1; padding-top: 8px; }
+.step-body h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.step-body p  { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+/* ── INFO BOXES ── */
+.info-box { border-radius: 10px; padding: 14px 18px; margin: 16px 0; font-size: 13px; display: flex; gap: 10px; align-items: flex-start; }
+.info-box.blue  { background: #eff6ff; border-left: 3px solid #3b82f6; }
+.info-box.green { background: #f0fdf4; border-left: 3px solid var(--green); }
+.info-box.amber { background: #fffbeb; border-left: 3px solid var(--amber); }
+.info-box.red   { background: #fef2f2; border-left: 3px solid var(--red); }
+.info-box-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.info-box-body strong { display: block; margin-bottom: 2px; font-weight: 600; }
+
+/* ── TABLE ── */
+.doc-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 16px 0; }
+.doc-table th { background: var(--indigo); color: white; padding: 10px 14px; text-align: left; font-weight: 500; font-size: 12px; }
+.doc-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.doc-table tr:last-child td { border-bottom: none; }
+.doc-table tr:nth-child(even) td { background: #f9fafb; }
+
+/* ── BADGE ── */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+.badge-admin    { background: #ede9fe; color: #6d28d9; }
+.badge-super    { background: #fef3c7; color: #92400e; }
+.badge-akademik { background: #ecfdf5; color: #065f46; }
+.badge-kepribadian { background: #eff6ff; color: #1d4ed8; }
+.badge-samapta  { background: #fff7ed; color: #c2410c; }
+.badge-yes  { background: #ecfdf5; color: #065f46; }
+.badge-no   { background: #fee2e2; color: #991b1b; }
+
+/* ── MENU CARD ── */
+.menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
+.menu-card {
+  background: var(--white); border: 1px solid var(--line);
+  border-radius: 10px; padding: 16px; transition: box-shadow .2s, transform .2s;
+}
+.menu-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.08); transform: translateY(-2px); }
+.menu-card-icon { font-size: 24px; margin-bottom: 8px; }
+.menu-card-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.menu-card-desc  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+/* ── SHORTCUT ── */
+.shortcut-list { display: flex; flex-direction: column; gap: 8px; }
+.shortcut-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--white); border: 1px solid var(--line);
+  border-radius: 8px; font-size: 13px;
+}
+.shortcut-item code {
+  background: #f3f4f6; border: 1px solid #e5e7eb;
+  border-radius: 4px; padding: 2px 8px; font-family: monospace;
+  font-size: 12px; white-space: nowrap;
+}
+
+/* ── KRITERIA ── */
+.kriteria-grid { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.krit-card { flex: 1; min-width: 100px; border-radius: 8px; padding: 12px; text-align: center; }
+.krit-card .krit-val { font-size: 18px; font-weight: 700; }
+.krit-card .krit-name { font-size: 11px; font-weight: 500; margin-top: 2px; }
+.krit-card .krit-poin { font-size: 11px; opacity: .8; }
+
+/* ── FORMULA BOX ── */
+.formula-box {
+  background: var(--indigo); color: white; border-radius: 12px;
+  padding: 24px; text-align: center; margin: 20px 0;
+}
+.formula-box-label { font-size: 13px; opacity: .7; margin-bottom: 8px; }
+.formula-box-text { font-family: 'DM Serif Display', serif; font-size: 26px; }
+.formula-box-note { font-size: 12px; opacity: .6; margin-top: 8px; }
+
+/* ── ACCORDION FAQ ── */
+.faq-item { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+.faq-q {
+  padding: 14px 18px; font-size: 14px; font-weight: 500;
+  cursor: pointer; display: flex; justify-content: space-between;
+  align-items: center; background: var(--white); user-select: none;
+}
+.faq-q:hover { background: var(--indigo-light); }
+.faq-a {
+  padding: 0 18px; max-height: 0; overflow: hidden;
+  transition: max-height .3s ease, padding .3s;
+  font-size: 13px; color: var(--muted); line-height: 1.7; background: #fdfdfd;
+}
+.faq-a.open { max-height: 600px; padding: 14px 18px; }
+.faq-chevron { transition: transform .3s; font-size: 12px; }
+.faq-chevron.open { transform: rotate(180deg); }
+
+/* ── READING BAR ── */
+.reading-bar { position: fixed; top: 0; left: 0; height: 3px; background: var(--indigo); z-index: 200; transition: width .1s; }
+
+/* ── SEARCH ── */
+.search-wrap { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.search-input {
+  width: 100%; padding: 7px 10px; border: 1px solid var(--line);
+  border-radius: 7px; font-size: 12px; font-family: 'DM Sans', sans-serif; outline: none;
+}
+.search-input:focus { border-color: var(--indigo); }
+
+/* ── MOBILE ── */
+.mobile-toggle {
+  display: none; position: fixed; bottom: 20px; right: 20px;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--indigo); color: white; border: none;
+  font-size: 20px; cursor: pointer; z-index: 200;
+  box-shadow: 0 4px 16px rgba(67,56,202,.4);
+}
+.sidebar-overlay { display: none; position: fixed; top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.35);z-index:99; }
+
+@media(max-width:900px) {
+  :root { --sidebar-w: 0px; }
+  .sidebar { transform: translateX(-280px); width: 280px; transition: transform .3s; box-shadow: none; }
+  .sidebar.open { transform: translateX(0); box-shadow: 4px 0 30px rgba(0,0,0,.2); }
+  .main { margin-left: 0; }
+  .hero { padding: 40px 20px; }
+  .hero h1 { font-size: 28px; }
+  .hero p { font-size: 15px; }
+  .content { padding: 28px 16px; }
+  .mobile-toggle { display: flex; align-items: center; justify-content: center; }
+  .sidebar.open ~ .sidebar-overlay { display: block; }
+  .menu-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .menu-card { padding: 12px; }
+  .kriteria-grid { flex-wrap: wrap; gap: 6px; }
+  .krit-card { min-width: 80px; flex: 1 1 auto; padding: 10px 6px; }
+  .role-cards { gap: 8px; }
+  .role-card { min-width: 120px; padding: 12px 14px; }
+  .doc-table { display: block; overflow-x: auto; white-space: nowrap; font-size: 11px; max-width: 100%; }
+  .doc-table th, .doc-table td { padding: 7px 8px; white-space: nowrap; }
+  .section { margin-bottom: 40px; }
+  .divider { margin: 32px 0; }
+  .section h2 { font-size: 24px; }
+  .shortcut-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+}
+</style>
+</head>
+<body>
+
+<div class="reading-bar" id="reading-bar"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">
+      <img class="logo-mark" src="favicon.png" alt="Logo SIPP" onerror="this.style.display='none'">
+      <span class="logo-text">SIPP</span>
+    </div>
+    <div class="sidebar-sub">Manual Book v3.1 — Agustus 2026</div>
+  </div>
+
+  <div class="search-wrap">
+    <input class="search-input" type="text" placeholder="Cari panduan..." id="search-input">
+  </div>
+
+  <nav class="sidebar-nav" id="nav">
+    <div class="nav-section-label">Mulai</div>
+    <a class="nav-link active" href="#pengenalan"><span class="nav-dot"></span>Pengenalan SIPP</a>
+    <a class="nav-link" href="#login"><span class="nav-dot"></span>Login &amp; Akses</a>
+    <a class="nav-link" href="#peran"><span class="nav-dot"></span>Peran Pengguna</a>
+
+    <div class="nav-section-label">Monitoring</div>
+    <a class="nav-link" href="#dashboard"><span class="nav-dot"></span>Dashboard</a>
+    <a class="nav-link" href="#leaderboard"><span class="nav-dot"></span>Leaderboard</a>
+
+    <div class="nav-section-label">Report &amp; Input Nilai</div>
+    <a class="nav-link" href="#report-npa"><span class="nav-dot"></span>Report NPA (Akademik)</a>
+    <a class="nav-link sub" href="#mata-pelajaran"><span class="nav-dot"></span>Mata Pelajaran</a>
+    <a class="nav-link" href="#report-npk"><span class="nav-dot"></span>Report NPK (Kepribadian)</a>
+    <a class="nav-link sub" href="#tambah-periode"><span class="nav-dot"></span>Tambah Periode</a>
+    <a class="nav-link" href="#report-nps"><span class="nav-dot"></span>Report NPS (Samapta)</a>
+    <a class="nav-link sub" href="#tambah-putaran"><span class="nav-dot"></span>Tambah Putaran</a>
+    <a class="nav-link" href="#report-npp"><span class="nav-dot"></span>Report NPP (Angkatan)</a>
+    <a class="nav-link" href="#report-individu"><span class="nav-dot"></span>Report Individual</a>
+
+    <div class="nav-section-label">Cetak Laporan</div>
+    <a class="nav-link" href="#cetak-laporan"><span class="nav-dot"></span>Cetak Laporan</a>
+
+    <div class="nav-section-label">Master Data</div>
+    <a class="nav-link" href="#lemdik"><span class="nav-dot"></span>Lembaga Pendidikan</a>
+    <a class="nav-link" href="#sekolah"><span class="nav-dot"></span>Sekolah (Skadik)</a>
+    <a class="nav-link" href="#angkatan"><span class="nav-dot"></span>Angkatan</a>
+    <a class="nav-link" href="#peserta"><span class="nav-dot"></span>Peserta Didik</a>
+    <a class="nav-link" href="#aspek-kepribadian"><span class="nav-dot"></span>Kelola Aspek Kepribadian</a>
+    <a class="nav-link" href="#manage-user"><span class="nav-dot"></span>Manage User</a>
+
+    <div class="nav-section-label">Penandatanganan</div>
+    <a class="nav-link" href="#penandatangan"><span class="nav-dot"></span>Penandatangan</a>
+
+    <div class="nav-section-label">Referensi</div>
+    <a class="nav-link" href="#rumus"><span class="nav-dot"></span>Rumus &amp; Predikat</a>
+    <a class="nav-link" href="#faq"><span class="nav-dot"></span>FAQ</a>
+  </nav>
+
+  <div class="sidebar-footer">
+    Sistem Informasi Penilaian Prestasi<br>
+    SIPP v3.1
+  </div>
+</aside>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">📘 Panduan Penggunaan Resmi</div>
+    <h1>Manual Book<br>SIPP</h1>
+    <p>Sistem Informasi Penilaian Prestasi — panduan lengkap dari login hingga cetak laporan untuk seluruh modul: Akademik (NPA), Kepribadian (NPK), Samapta (NPS), dan Kompilasi (NPP).</p>
+    <div class="role-cards">
+      <div class="role-card" onclick="document.getElementById('peran').scrollIntoView({behavior:'smooth'})">
+        <div class="role-icon">👑</div>
+        <div class="role-name">Super Admin</div>
+        <div class="role-desc">WingDik — akses penuh</div>
+      </div>
+      <div class="role-card" onclick="document.getElementById('peran').scrollIntoView({behavior:'smooth'})">
+        <div class="role-icon">🛡️</div>
+        <div class="role-name">Opsdik</div>
+        <div class="role-desc">Skadik — akses penuh</div>
+      </div>
+      <div class="role-card" onclick="document.getElementById('peran').scrollIntoView({behavior:'smooth'})">
+        <div class="role-icon">📚</div>
+        <div class="role-name">Kepala Sekolah</div>
+        <div class="role-desc">Modul NPA &amp; Report NPA</div>
+      </div>
+      <div class="role-card" onclick="document.getElementById('peran').scrollIntoView({behavior:'smooth'})">
+        <div class="role-icon">🧠</div>
+        <div class="role-name">Danflight</div>
+        <div class="role-desc">Modul NPK &amp; Report NPK</div>
+      </div>
+      <div class="role-card" onclick="document.getElementById('peran').scrollIntoView({behavior:'smooth'})">
+        <div class="role-icon">🏃</div>
+        <div class="role-name">Binjaswing</div>
+        <div class="role-desc">Modul NPS &amp; Report NPS</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 1. PENGENALAN -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="pengenalan">
+      <div class="section-badge">📌 Pengenalan</div>
+      <h2>Apa itu SIPP?</h2>
+      <p class="section-lead">SIPP (Sistem Informasi Penilaian Prestasi) adalah aplikasi berbasis web yang dirancang untuk mengelola seluruh proses penilaian siswa didik militer — dari data master hingga cetak laporan akhir pendidikan.</p>
+
+      <div class="menu-grid">
+        <div class="menu-card">
+          <div class="menu-card-icon">📊</div>
+          <div class="menu-card-title">Dashboard Monitoring</div>
+          <div class="menu-card-desc">Rata-rata NPA/NPK/NPS/NPP, podium Top 3, ranking 4–10, dan distribusi nilai</div>
+        </div>
+        <div class="menu-card">
+          <div class="menu-card-icon">📚</div>
+          <div class="menu-card-title">Nilai Akademik (NPA)</div>
+          <div class="menu-card-desc">Input nilai per mata pelajaran, hitung NPA otomatis dengan bobot &amp; harga nilai</div>
+        </div>
+        <div class="menu-card">
+          <div class="menu-card-icon">🧠</div>
+          <div class="menu-card-title">Nilai Kepribadian (NPK)</div>
+          <div class="menu-card-desc">Aspek kepribadian dengan skala BS/B/C/K/KS per periode, grafik tren &amp; radar</div>
+        </div>
+        <div class="menu-card">
+          <div class="menu-card-icon">🏃</div>
+          <div class="menu-card-title">Nilai Samapta (NPS)</div>
+          <div class="menu-card-desc">5 field manual per putaran (Jarak Lari, Garjas A, Garjas B, Nilai Akhir, Konversi)</div>
+        </div>
+        <div class="menu-card">
+          <div class="menu-card-icon">🏆</div>
+          <div class="menu-card-title">Kompilasi Nilai (NPP)</div>
+          <div class="menu-card-desc">NPP dihitung <em>live</em> dari NPA + NPK + NPS dengan bobot — ranking &amp; predikat</div>
+        </div>
+        <div class="menu-card">
+          <div class="menu-card-icon">🖨️</div>
+          <div class="menu-card-title">Cetak Laporan</div>
+          <div class="menu-card-desc">Cetak laporan individu &amp; keseluruhan dengan penandatangan resmi</div>
+        </div>
+      </div>
+
+      <div class="info-box blue">
+        <span class="info-box-icon">ℹ️</span>
+        <div class="info-box-body">
+          <strong>4 Komponen Penilaian:</strong> SIPP mengelola 4 jenis nilai utama:<br>
+          <strong>NPA</strong> = Nilai Prestasi Akademik &nbsp;|&nbsp;
+          <strong>NPK</strong> = Nilai Prestasi Kepribadian &nbsp;|&nbsp;
+          <strong>NPS</strong> = Nilai Prestasi Samapta &nbsp;|&nbsp;
+          <strong>NPP</strong> = Nilai Prestasi Pendidikan (Kompilasi)
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 2. LOGIN -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="login">
+      <div class="section-badge">🔐 Login</div>
+      <h2>Login &amp; Akses Sistem</h2>
+      <p class="section-lead">Hanya pengguna terdaftar yang memiliki akun login. Akun dibuat oleh Super Admin atau Opsdik melalui menu Manage User.</p>
+
+      <div class="subsection">
+        <h3>Cara Login</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Buka halaman login</h4><p>Ketik alamat SIPP di browser, sistem akan otomatis redirect ke halaman login.</p></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Masukkan email dan password</h4><p>Gunakan kredensial yang diberikan oleh Super Admin / Opsdik.</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik tombol "Masuk"</h4><p>Jika berhasil, sistem mengarahkan ke Dashboard sesuai peran pengguna.</p></div></div>
+          <div class="step"><div class="step-dot">4</div><div class="step-body"><h4>Klik "Keluar" untuk logout</h4><p>Tombol Keluar ada di bagian bawah sidebar kiri (sebelah info user).</p></div></div>
+        </div>
+      </div>
+
+      <div class="info-box amber">
+        <span class="info-box-icon">⚠️</span>
+        <div class="info-box-body">
+          <strong>Keamanan akun!</strong> Segera ganti password jika diberikan password default. Hubungi Super Admin / Opsdik untuk reset password jika lupa.
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 3. PERAN -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="peran">
+      <div class="section-badge">👥 Peran</div>
+      <h2>Peran Pengguna</h2>
+      <p class="section-lead">SIPP memiliki 5 peran dengan hak akses berbeda. Setiap modul nilai memiliki admin khusus yang mengelola modulnya. Super Admin (WingDik) dan Opsdik (Skadik) memiliki akses penuh.</p>
+
+      <table class="doc-table">
+        <thead><tr><th>Fitur</th><th>Super Admin</th><th>Opsdik</th><th>Kepala Sekolah</th><th>Danflight</th><th>Binjaswing</th></tr></thead>
+        <tbody>
+          <tr><td>Dashboard</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td></tr>
+          <tr><td>Leaderboard</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td></tr>
+          <tr><td>Report NPA + Input NPA</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td></tr>
+          <tr><td>Mata Pelajaran</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td></tr>
+          <tr><td>Report NPK + Input NPK</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td></tr>
+          <tr><td>Kelola Aspek Kepribadian</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td></tr>
+          <tr><td>Report NPS + Input NPS</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-yes">✓</span></td></tr>
+          <tr><td>Report NPP (Angkatan)</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td></tr>
+          <tr><td>Report Individual</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td></tr>
+          <tr><td>Kompilasi (atur bobot)</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td></tr>
+          <tr><td>Cetak Laporan</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td></tr>
+          <tr><td>Master Data (Lemdik, Sekolah, Angkatan, Peserta)</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td></tr>
+          <tr><td>Manage User</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td></tr>
+          <tr><td>Penandatangan</td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-yes">✓</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td><td><span class="badge badge-no">✗</span></td></tr>
+        </tbody>
+      </table>
+
+      <div class="info-box blue">
+        <span class="info-box-icon">💡</span>
+        <div class="info-box-body">
+          <strong>Super Admin Skadik Switcher:</strong> Super Admin dapat berganti memantau Skadik mana pun melalui dropdown <strong>"Pilih Skadik"</strong> di bagian bawah sidebar. Admin modul (Kepala Sekolah/Danflight/Binjaswing) hanya melihat sekolah yang ditugaskan kepadanya.
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 4. DASHBOARD -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="dashboard">
+      <div class="section-badge">📊 Dashboard</div>
+      <h2>Dashboard</h2>
+      <p class="section-lead">Dashboard menampilkan ringkasan status penilaian angkatan secara real-time: rata-rata setiap komponen nilai, podium Top 3 NPP, ranking 4–10, dan distribusi nilai akhir. Dapat diakses oleh seluruh role yang login.</p>
+
+      <div class="subsection">
+        <h3>Komponen Dashboard</h3>
+        <div class="menu-grid">
+          <div class="menu-card">
+            <div class="menu-card-icon">📈</div>
+            <div class="menu-card-title">8 Kartu Statistik</div>
+            <div class="menu-card-desc">Total Peserta, Rata-rata NPA, NPK, NPS, NPP, NPP Tertinggi, Terendah, &amp; jumlah di bawah rata-rata</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">🏆</div>
+            <div class="menu-card-title">Podium Top 3 NPP</div>
+            <div class="menu-card-desc">Visualisasi peringkat 1, 2, 3 dari kompilasi nilai akhir (dihitung live)</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">🔢</div>
+            <div class="menu-card-title">Ranking 4 – 10</div>
+            <div class="menu-card-desc">Tabel peringkat 4 sampai 10 beserta NPP masing-masing peserta</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">📊</div>
+            <div class="menu-card-title">Distribusi NPP</div>
+            <div class="menu-card-desc">Histogram sebaran nilai akhir (≥85, 80–84, 75–79, 70–74, 65–69, &lt;65)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>Cara Menggunakan</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Pilih Sekolah &amp; Angkatan</h4><p>Gunakan dropdown filter di atas dashboard. Data otomatis berubah saat filter dipilih.</p></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Pantau statistik &amp; podium</h4><p>Rata-rata NPA/NPK/NPS/NPP dan Top 3 dihitung langsung dari data sumber.</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Aktifkan periode kepribadian</h4><p>Jika ada periode yang belum aktif, klik tombol "Aktifkan" pada periode yang sesuai.</p></div></div>
+        </div>
+      </div>
+
+      <div class="info-box blue">
+        <span class="info-box-icon">💡</span>
+        <div class="info-box-body">
+          <strong>Dihitung live:</strong> Podium, ranking, dan NPP dihitung langsung dari NPA + NPK (rata-rata semua periode) + NPS menggunakan bobot kompilasi. Tidak perlu proses kompilasi manual agar ranking muncul.
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 5. LEADERBOARD -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="leaderboard">
+      <div class="section-badge">🏆 Leaderboard</div>
+      <h2>Leaderboard</h2>
+      <p class="section-lead">Leaderboard menampilkan peringkat peserta berdasarkan <strong>NPP (Kompilasi)</strong> angkatan yang dipilih — dihitung live dari NPA, NPK, dan NPS. Hanya bisa diakses oleh Super Admin dan Opsdik.</p>
+
+      <div class="subsection">
+        <h3>Cara Menggunakan</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu Leaderboard di sidebar</h4><p>Di bagian Monitoring.</p></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Pilih Sekolah &amp; Angkatan</h4><p>Gunakan dropdown filter di bagian atas.</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Cari peserta (opsional)</h4><p>Gunakan kotak pencarian untuk memfilter berdasarkan nama atau NRP.</p></div></div>
+          <div class="step"><div class="step-dot">4</div><div class="step-body"><h4>Lihat ranking</h4><p>Tabel menampilkan NPA, NPK, NPS, NPP, peringkat, dan predikat per peserta.</p></div></div>
+          <div class="step"><div class="step-dot">5</div><div class="step-body"><h4>Ekspor</h4><p>Klik "Ekspor XLSX" untuk mengunduh leaderboard format resmi.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 6. REPORT NPA -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="report-npa">
+      <div class="section-badge">📚 NPA</div>
+      <h2>Report NPA (Akademik)</h2>
+      <p class="section-lead">Report NPA adalah pusat pengelolaan nilai akademik. Selain melihat rekap, Anda juga menginput nilai dari halaman ini. Diakses oleh Super Admin, Opsdik, dan Kepala Sekolah.</p>
+
+      <div class="subsection">
+        <h3>Aktivitas di Report NPA</h3>
+        <div class="menu-grid">
+          <div class="menu-card">
+            <div class="menu-card-icon">📥</div>
+            <div class="menu-card-title">Impor Excel</div>
+            <div class="menu-card-desc">Upload nilai akademik dari file Excel per angkatan</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">✏️</div>
+            <div class="menu-card-title">Input Manual</div>
+            <div class="menu-card-desc">Pilih peserta, isi nilai per mata pelajaran</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">🔀</div>
+            <div class="menu-card-title">Edit Nilai</div>
+            <div class="menu-card-desc">Ubah nilai yang sudah diinput sebelumnya</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">🔄</div>
+            <div class="menu-card-title">Recalculate</div>
+            <div class="menu-card-desc">Hitung ulang semua NPA (misal setelah ubah bobot mapel)</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">🖨️</div>
+            <div class="menu-card-title">Cetak NPA</div>
+            <div class="menu-card-desc">Cetak rekap NPA angkatan ke PDF</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">⬇️</div>
+            <div class="menu-card-title">Ekspor</div>
+            <div class="menu-card-desc">Download laporan NPA dalam format Excel</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>Cara Input Manual NPA</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Pilih Sekolah &amp; Angkatan</h4><p>Gunakan dropdown filter di halaman Report NPA.</p></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Klik "Input Manual"</h4><p>Pilih peserta dari dropdown.</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Isi nilai per mata pelajaran</h4><p>Mata pelajaran otomatis tampil sesuai Sekolah angkatan.</p></div></div>
+          <div class="step"><div class="step-dot">4</div><div class="step-body"><h4>Klik Simpan</h4><p>NPA dihitung otomatis: <code>NPA = Σ (nilai × bobot) / Σ bobot</code></p></div></div>
+        </div>
+      </div>
+
+      <div class="formula-box">
+        <div class="formula-box-label">Rumus NPA</div>
+        <div class="formula-box-text">NPA = Σ (Nilai Mapel × Bobot) ÷ Σ Bobot</div>
+        <div class="formula-box-note">Bobot diambil dari data Mata Pelajaran per Sekolah. Contoh: Matematika 80 (bobot 3) + Fisika 75 (bobot 2) = (80×3 + 75×2) / 5 = 78</div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 7. MATA PELAJARAN -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="mata-pelajaran">
+      <div class="section-badge">📖 Mata Pelajaran</div>
+      <h2>Mata Pelajaran</h2>
+      <p class="section-lead">Mata pelajaran dikelola per Sekolah dan dapat dipetakan ke banyak sekolah (many-to-many). Menu ini tersarang di bawah Report NPA. Diakses oleh Super Admin, Opsdik, dan Kepala Sekolah. Setiap mapel memiliki atribut: <strong>JP</strong> (Jam Pelajaran), <strong>Bobot</strong>, dan <strong>Harga Nilai</strong> yang dipakai bersama antar sekolah.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Pilih Sekolah</h4><p>Dropdown filter di atas. Mapel ditampilkan sesuai Sekolah yang dipilih, beserta Total Bobot aktif.</p></div></div>
+        <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Tambah mapel baru</h4><p>Klik "Tambah Baru", isi Nama, Kode, JP, Bobot, dan Harga Nilai. Klik Simpan.</p></div></div>
+        <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Petakan mapel yang sudah ada</h4><p>Pilih mapel dari sekolah lain lalu klik "Petakan ke Sekolah Ini" agar tidak perlu input dobel.</p></div></div>
+        <div class="step"><div class="step-dot">4</div><div class="step-body"><h4>Load Template / Duplikasi</h4><p>Gunakan "Load Template" untuk memuat mapel default, atau "Duplikasi" untuk menyalin mapel dari sekolah lain sekaligus.</p></div></div>
+        <div class="step"><div class="step-dot">5</div><div class="step-body"><h4>Atur urutan &amp; status aktif</h4><p>Urutan tampil &amp; status aktif diatur per-sekolah. Bobot &amp; harga nilai milik mapel (dipakai bersama).</p></div></div>
+      </div>
+
+      <div class="info-box green">
+        <span class="info-box-icon">✅</span>
+        <div class="info-box-body">
+          <strong>Many-to-many:</strong> Satu mata pelajaran bisa dipakai banyak sekolah. Mengubah bobot/harga nilai pada mapel akan berlaku di semua sekolah yang memetakannya.
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 8. REPORT NPK -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="report-npk">
+      <div class="section-badge">🧠 NPK</div>
+      <h2>Report NPK (Kepribadian)</h2>
+      <p class="section-lead">Report NPK sekaligus pusat input nilai kepribadian. Menampilkan rekap &amp; analisis lengkap: histori per periode, grafik tren, radar aspek, statistik, dan tombol input per peserta. Diakses oleh Super Admin, Opsdik, dan Danflight.</p>
+
+      <div class="subsection">
+        <h3>Skala Penilaian</h3>
+        <div class="kriteria-grid">
+          <div class="krit-card" style="background:#ecfdf5;color:#059669">
+            <div class="krit-val">BS</div>
+            <div class="krit-name">Baik Sekali</div>
+            <div class="krit-poin">+0.5 poin</div>
+          </div>
+          <div class="krit-card" style="background:#eff6ff;color:#4f46e5">
+            <div class="krit-val">B</div>
+            <div class="krit-name">Baik</div>
+            <div class="krit-poin">+0.25 poin</div>
+          </div>
+          <div class="krit-card" style="background:#f4f5f7;color:#6b7280">
+            <div class="krit-val">C</div>
+            <div class="krit-name">Cukup</div>
+            <div class="krit-poin">0 poin</div>
+          </div>
+          <div class="krit-card" style="background:#fffbeb;color:#b45309">
+            <div class="krit-val">K</div>
+            <div class="krit-name">Kurang</div>
+            <div class="krit-poin">-0.25 poin</div>
+          </div>
+          <div class="krit-card" style="background:#fef2f2;color:#b91c1c">
+            <div class="krit-val">KS</div>
+            <div class="krit-name">Kurang Sekali</div>
+            <div class="krit-poin">-0.5 poin</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="formula-box">
+        <div class="formula-box-label">Formula Nilai Kepribadian</div>
+        <div class="formula-box-text">NPK = 75 + Σ Poin Aspek</div>
+        <div class="formula-box-note">Nilai awal 75 · Maksimum 80 (semua BS) · Minimum 70 (semua KS)</div>
+      </div>
+
+      <div class="subsection">
+        <h3>Fitur Report NPK</h3>
+        <div class="menu-grid">
+          <div class="menu-card">
+            <div class="menu-card-icon">📊</div>
+            <div class="menu-card-title">Grafik Tren</div>
+            <div class="menu-card-desc">Garis rata-rata nilai akhir dari periode ke periode</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">🎯</div>
+            <div class="menu-card-title">Radar Aspek</div>
+            <div class="menu-card-desc">Visualisasi aspek kepribadian dalam bentuk radar chart</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">📋</div>
+            <div class="menu-card-title">Tabel Histori</div>
+            <div class="menu-card-desc">Nilai per periode per peserta dengan tren ▲▼</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">✏️</div>
+            <div class="menu-card-title">Isi Nilai</div>
+            <div class="menu-card-desc">Tombol "Isi Nilai" / "Edit" per baris peserta langsung dari report</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">📥</div>
+            <div class="menu-card-title">Bulk Upload</div>
+            <div class="menu-card-desc">Tombol "Bulk Upload" di topbar untuk impor massal Excel</div>
+          </div>
+          <div class="menu-card">
+            <div class="menu-card-icon">⬇️</div>
+            <div class="menu-card-title">Ekspor XLSX</div>
+            <div class="menu-card-desc">Multi-sheet: Rekap Nilai, Detail Aspek, Rata-rata Angkatan</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>Cara Input Nilai Kepribadian</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Buka menu Report NPK</h4><p>Pilih Sekolah, Angkatan, lalu rentang periode &amp; peserta.</p></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Klik tombol "Isi Nilai" pada baris peserta</h4><p>Tombol untuk input baru, atau "Edit" untuk mengubah yang sudah ada.</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Pilih kriteria BS/B/C/K/KS untuk tiap aspek</h4><p>Nilai akhir otomatis terhitung di bawah form.</p></div></div>
+          <div class="step"><div class="step-dot">4</div><div class="step-body"><h4>Isi narasi &amp; rekomendasi (opsional)</h4></div></div>
+          <div class="step"><div class="step-dot">5</div><div class="step-body"><h4>Klik "Simpan Nilai"</h4><p>Setelah simpan, otomatis kembali ke tabel daftar peserta.</p></div></div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>📥 Impor Nilai Kepribadian via Excel (Bulk Upload)</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik "Bulk Upload" di topbar Report NPK</h4></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Download template</h4><p>Template sudah berisi daftar peserta dan kolom aspek.</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Isi kolom aspek dengan BS/B/C/K/KS</h4><p>Jangan ubah kolom NRP dan Nosis.</p></div></div>
+          <div class="step"><div class="step-dot">4</div><div class="step-body"><h4>Upload file .xlsx</h4></div></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 9. TAMBAH PERIODE -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="tambah-periode">
+      <div class="section-badge">📅 Periode</div>
+      <h2>Tambah Periode (NPK)</h2>
+      <p class="section-lead">Nilai kepribadian diinput per <strong>periode</strong> (biasanya 2 minggu sekali). Menu "Tambah Periode" tersarang di bawah Report NPK. Diakses oleh Super Admin, Opsdik, dan Danflight.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu "Tambah Periode" di sidebar</h4><p>Di bawah Report NPK.</p></div></div>
+        <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Pilih Angkatan, isi label &amp; tanggal</h4><p>Contoh: "Periode 8" atau "Mei II 2026". Label harus unik per angkatan.</p></div></div>
+        <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik Buat Periode</h4><p>Periode baru otomatis menjadi aktif. Periode lama tetap tersimpan sebagai histori.</p></div></div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 10. REPORT NPS (SAMAPTA — versi sederhana) -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="report-nps">
+      <div class="section-badge">🏃 NPS</div>
+      <h2>Report NPS (Samapta)</h2>
+      <p class="section-lead">Modul Samapta menggunakan <strong>versi sederhana: 5 field manual tanpa rumus otomatis</strong>. Input dibedakan per <strong>putaran</strong>. Diakses oleh Super Admin, Opsdik, dan Binjaswing.</p>
+
+      <div class="subsection">
+        <h3>5 Field Input Samapta</h3>
+        <table class="doc-table">
+          <thead><tr><th>Kolom</th><th>Keterangan</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Jarak Lari (meter)</strong></td><td>Hasil jarak tempuh lari 12 menit</td></tr>
+            <tr><td><strong>Nilai Lari (Garjas A)</strong></td><td>Nilai untuk hasil lari</td></tr>
+            <tr><td><strong>Garjas B</strong></td><td>Nilai komponen Garjas B</td></tr>
+            <tr><td><strong>Nilai Akhir</strong></td><td>Nilai akhir samapta (NPS) untuk putaran ini</td></tr>
+            <tr><td><strong>Nilai Konversi</strong></td><td>Nilai hasil konversi (bila diperlukan)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="info-box amber">
+        <span class="info-box-icon">⚠️</span>
+        <div class="info-box-body">
+          <strong>Tanpa rumus otomatis:</strong> Seluruh nilai diisi manual. Tidak ada perhitungan TSC/Garjas otomatis. Pastikan nilai akhir &amp; konversi sudah benar saat input.
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>Cara Input Manual NPS</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Buka menu Report NPS</h4><p>Pilih Sekolah, Angkatan, dan <strong>Putaran</strong>.</p></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Klik "Input Manual"</h4><p>Pilih peserta, lalu isi 5 field (Jarak Lari, Garjas A, Garjas B, Nilai Akhir, Nilai Konversi).</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik Simpan</h4><p>Nilai akhir tersimpan per peserta untuk putaran yang dipilih.</p></div></div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>📥 Impor Nilai Samapta via Excel (Bulk)</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Unduh Template</h4><p>Klik "Unduh Template" di halaman Report NPS. Template berisi daftar peserta pre-filled + 5 kolom kosong.</p></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Isi 5 kolom nilai per peserta</h4><p>Jangan ubah kolom NRP, Nama, dan Pangkat.</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Pilih Putaran &amp; upload file .xlsx</h4><p>Bisa ubah nama putaran saat upload (opsional). Data untuk putaran yang sama akan menimpa yang lama.</p></div></div>
+          <div class="step"><div class="step-dot">4</div><div class="step-body"><h4>Cek hasil tabel</h4><p>Setiap putaran bisa diedit (✏️), dihapus (🗑️ Hapus Putaran Ini / Hapus Semua Putaran), diekspor (📥), atau dicetak (🖨️).</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 11. TAMBAH PUTARAN -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="tambah-putaran">
+      <div class="section-badge">🔄 Putaran</div>
+      <h2>Tambah Putaran (NPS)</h2>
+      <p class="section-lead">Nilai samapta dikelompokkan per <strong>putaran</strong>. Menu "Tambah Putaran" tersarang di bawah Report NPS. Diakses oleh Super Admin, Opsdik, dan Binjaswing.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu "Tambah Putaran" di sidebar</h4><p>Di bawah Report NPS.</p></div></div>
+        <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Pilih Angkatan, isi label &amp; tanggal mulai/selesai</h4><p>Contoh: "Putaran 1". Label harus unik per angkatan.</p></div></div>
+        <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik Buat Putaran</h4><p>Putaran baru otomatis aktif. Setelah itu input data NPS untuk putaran tersebut.</p></div></div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 12. REPORT NPP -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="report-npp">
+      <div class="section-badge">🏆 NPP</div>
+      <h2>Report NPP (Angkatan)</h2>
+      <p class="section-lead">Report NPP menampilkan hasil kompilasi seluruh angkatan: NPA, NPK, NPS, NPP, ranking, dan predikat. NPP dihitung <strong>live</strong> dari data sumber. Diakses oleh Super Admin, Opsdik, dan Kepala Sekolah.</p>
+
+      <div class="subsection">
+        <h3>Cara Mengatur Bobot Kompilasi</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Pastikan semua nilai sudah diinput</h4><p>NPA, NPK (minimal 1 periode), dan NPS sebaiknya sudah lengkap.</p></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Buka menu Kompilasi (atur bobot)</h4><p>Tersedia bagi Super Admin &amp; Opsdik. Pilih angkatan.</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Tentukan bobot</h4><p>Contoh: Akademik 70%, Kepribadian 20%, Samapta 10%. Total harus 100%.</p></div></div>
+          <div class="step"><div class="step-dot">4</div><div class="step-body"><h4>Klik "Proses Kompilasi"</h4><p>Bobot tersimpan &amp; dipakai untuk seluruh perhitungan NPP (dashboard, leaderboard, report).</p></div></div>
+          <div class="step"><div class="step-dot">5</div><div class="step-body"><h4>Lihat hasil di Report NPP</h4><p>Statistik: total peserta, rata-rata NPP, tertinggi/terendah. Tersedia tombol ekspor Excel.</p></div></div>
+        </div>
+      </div>
+
+      <div class="formula-box">
+        <div class="formula-box-label">Formula Kompilasi</div>
+        <div class="formula-box-text">NPP = (NPA × Bobot A) + (NPK × Bobot K) + (NPS × Bobot S)</div>
+        <div class="formula-box-note">Default: NPA 70% + NPK 20% + NPS 10% · Bobot dapat diubah saat kompilasi · NPK = rata-rata semua periode</div>
+      </div>
+
+      <div class="info-box green">
+        <span class="info-box-icon">✅</span>
+        <div class="info-box-body">
+          <strong>Live &amp; bisa diulang:</strong> Podium, leaderboard, dan Report NPP selalu menghitung NPP secara langsung dari data terbaru. Ubah bobot kapan saja — data otomatis diperbarui tanpa duplikasi.
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 13. REPORT INDIVIDU -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="report-individu">
+      <div class="section-badge">👤 Individual</div>
+      <h2>Report Individual</h2>
+      <p class="section-lead">Menampilkan laporan lengkap 1 peserta: NPA, NPK (detail per periode), NPS, dan Kompilasi (NPP). Dapat diakses oleh seluruh role yang login.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu "Report Individual" di sidebar</h4></div></div>
+        <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Pilih Sekolah, Angkatan &amp; Peserta</h4></div></div>
+        <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Lihat semua nilai</h4><p>Card NPA, tabel NPK per periode, data NPS, dan kompilasi NPP + predikat.</p></div></div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 14. CETAK LAPORAN -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="cetak-laporan">
+      <div class="section-badge">🖨️ Cetak</div>
+      <h2>Cetak Laporan</h2>
+      <p class="section-lead">Menu Cetak Laporan digunakan untuk mencetak laporan dalam format cetak (Print/PDF). Hanya Super Admin dan Opsdik yang bisa mengakses.</p>
+
+      <div class="subsection">
+        <h3>Jenis Cetak</h3>
+        <table class="doc-table">
+          <thead><tr><th>Jenis</th><th>Keterangan</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Cetak Individu</strong></td><td>Laporan lengkap 1 peserta: identitas, NPA, NPK (semua periode), NPS, NPP, dengan penandatangan</td></tr>
+            <tr><td><strong>Cetak Semua</strong></td><td>Laporan seluruh angkatan dalam satu halaman — cocok untuk arsip</td></tr>
+            <tr><td><strong>Ekspor Semua</strong></td><td>Download laporan angkatan dalam format Excel</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>Cara Cetak Laporan Individu</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu "Cetak Laporan" di sidebar</h4></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Pilih Sekolah &amp; Angkatan</h4></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik tombol "🖨️ Cetak" pada peserta</h4></div></div>
+          <div class="step"><div class="step-dot">4</div><div class="step-body"><h4>Halaman cetak terbuka</h4><p>Gunakan Ctrl+P atau Cmd+P untuk cetak ke PDF / printer.</p></div></div>
+        </div>
+      </div>
+
+      <div class="info-box blue">
+        <span class="info-box-icon">ℹ️</span>
+        <div class="info-box-body">
+          <strong>Penandatangan:</strong> Laporan cetak otomatis menyertakan nama penandatangan yang sudah diatur di menu Penandatangan. Pastikan penandatangan sudah dikonfigurasi sebelum mencetak.
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 15. MASTER DATA -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="lemdik">
+      <div class="section-badge">🏛️ Master Data</div>
+      <h2>Lembaga Pendidikan (Lemdik)</h2>
+      <p class="section-lead">Data master dimulai dari Lembaga Pendidikan. Setiap Lemdik bisa memiliki beberapa Sekolah (Skadik). Hanya Super Admin dan Opsdik yang bisa mengakses seluruh Master Data.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu Lembaga Pendidikan</h4><p>Di sidebar bagian Master Data.</p></div></div>
+        <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Klik "+ Tambah Lemdik"</h4><p>Isi Nama dan Kode Lemdik. Kode harus unik.</p></div></div>
+        <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik Simpan</h4><p>Lemdik tersimpan dan siap digunakan.</p></div></div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="section" id="sekolah">
+      <div class="section-badge">🏫 Sekolah</div>
+      <h2>Sekolah (Skadik)</h2>
+      <p class="section-lead">Setiap Sekolah terhubung ke satu Lemdik. Sekolah memiliki Kepala Sekolah, dan bisa memiliki beberapa Angkatan. (URL aplikasi: <code>/sekolah</code>.)</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu Sekolah di sidebar</h4><p>Di bagian Master Data.</p></div></div>
+        <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Klik "+ Tambah Sekolah"</h4><p>Isi Nama, Kode, pilih Lemdik, dan isi Kepala Sekolah.</p></div></div>
+        <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik Simpan</h4><p>Sekolah tersimpan.</p></div></div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="section" id="angkatan">
+      <div class="section-badge">📅 Angkatan</div>
+      <h2>Angkatan</h2>
+      <p class="section-lead">Setiap angkatan terhubung ke satu Sekolah dan berisi peserta didik. Kepala Sekolah (admin_akademik) juga dapat mengelola angkatan melalui menu Manage Akademik.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu Angkatan di sidebar</h4></div></div>
+        <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Klik "+ Tambah Angkatan"</h4><p>Isi Sekolah, nomor angkatan, tahun masuk, dan jurusan (opsional).</p></div></div>
+        <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik Simpan</h4><p>Angkatan siap diisi peserta.</p></div></div>
+      </div>
+
+      <div class="info-box blue">
+        <span class="info-box-icon">ℹ️</span>
+        <div class="info-box-body">
+          <strong>Status Aktif:</strong> Angkatan harus berstatus <strong>Aktif</strong> agar muncul di dropdown filter. Nonaktifkan angkatan yang sudah selesai.
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="section" id="peserta">
+      <div class="section-badge">👥 Peserta</div>
+      <h2>Peserta Didik</h2>
+      <p class="section-lead">Admin menambahkan peserta didik ke dalam angkatan. Peserta tidak memiliki akun login (hanya user/akun pengguna yang bisa login).</p>
+
+      <div class="subsection">
+        <h3>Tambah Peserta (Satuan)</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu Peserta Didik</h4></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Pilih angkatan</h4><p>Gunakan dropdown filter di atas tabel.</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik "+ Tambah Peserta"</h4><p>Isi Nama Lengkap, NRP, Pangkat, Nosis.</p></div></div>
+          <div class="step"><div class="step-dot">4</div><div class="step-body"><h4>Klik Simpan</h4></div></div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>📥 Impor Peserta dari Excel (Bulk)</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik tombol "📥 Impor Peserta" di halaman Peserta</h4></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Pilih Angkatan</h4></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Download template Excel</h4><p>Template berisi kolom: <strong>Nama, Pangkat, NRP, Nosis</strong>.</p></div></div>
+          <div class="step"><div class="step-dot">4</div><div class="step-body"><h4>Isi data, upload file .xlsx</h4></div></div>
+          <div class="step"><div class="step-dot">5</div><div class="step-body"><h4>Cek hasil impor</h4><p>NRP duplikat akan otomatis diperbarui (update), bukan diabaikan.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="section" id="aspek-kepribadian">
+      <div class="section-badge">🧩 Aspek</div>
+      <h2>Kelola Aspek Kepribadian</h2>
+      <p class="section-lead">Mengelola daftar aspek kepribadian yang dipakai saat input NPK. Tersedia di Master Data. Diakses oleh Super Admin, Opsdik, dan Danflight.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu "Kelola Aspek Kepribadian"</h4><p>Di sidebar bagian Master Data.</p></div></div>
+        <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Tambah / Ubah / Hapus aspek</h4><p>Tambah aspek baru, atau ubah/hapus aspek yang ada.</p></div></div>
+        <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Simpan</h4><p>Daftar aspek terbaru langsung dipakai di form input NPK.</p></div></div>
+      </div>
+
+      <div class="subsection">
+        <h3>Contoh Aspek Kepribadian Default</h3>
+        <table class="doc-table">
+          <thead><tr><th>No</th><th>Aspek</th><th>Sub-aspek</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Sikap Mental &amp; Moral</td><td>Ketakwaan, Pancasila, Semangat Juang</td></tr>
+            <tr><td>2</td><td>Kejujuran</td><td>Pegang Teguh Kebenaran</td></tr>
+            <tr><td>3</td><td>Disiplin</td><td>Ketertiban Sikap, Waktu, Patuh Aturan</td></tr>
+            <tr><td>4</td><td>Kewibawaan</td><td>Penampilan, Kepercayaan Diri</td></tr>
+            <tr><td>5</td><td>Inisiatif</td><td>Menciptakan, Memanfaatkan Kesempatan</td></tr>
+            <tr><td>6</td><td>Loyalitas</td><td>Rela Berkorban, Patuh Atasan</td></tr>
+            <tr><td>7</td><td>Tanggung Jawab</td><td>Taat Aturan, Rela Mengemban Tugas</td></tr>
+            <tr><td>8</td><td>Ketabahan</td><td>Keuletan, Semangat, Daya Tahan</td></tr>
+            <tr><td>9</td><td>Sosiobilitas</td><td>Adaptasi, Berkomunikasi</td></tr>
+            <tr><td>10</td><td>Kedewasaan</td><td>Keseimbangan Emosi, Kerja Sama</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="section" id="manage-user">
+      <div class="section-badge">👤 User</div>
+      <h2>Manage User</h2>
+      <p class="section-lead">Hanya Super Admin dan Opsdik yang bisa membuat akun pengguna. Saat membuat user, wajib memilih minimal 1 Sekolah (Skadik) yang dapat dikelola.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu Manage User di sidebar</h4></div></div>
+        <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Klik "+ Tambah User"</h4><p>Isi Nama, Email, Password, pilih Role, dan pilih minimal 1 Sekolah.</p></div></div>
+        <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik Simpan</h4><p>User baru bisa langsung login.</p></div></div>
+      </div>
+
+      <table class="doc-table">
+        <thead><tr><th>Role</th><th>Fungsi</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-super">Super Admin</span></td><td>Akses penuh semua fitur. Biasanya dari WingDik.</td></tr>
+          <tr><td><span class="badge badge-admin">Opsdik</span></td><td>Akses penuh semua fitur di lingkungan skadiknya.</td></tr>
+          <tr><td><span class="badge badge-akademik">Kepala Sekolah</span></td><td>Mengelola nilai akademik (NPA), Mata Pelajaran, Angkatan, &amp; Report NPA/NPP.</td></tr>
+          <tr><td><span class="badge badge-kepribadian">Danflight</span></td><td>Mengelola nilai kepribadian (NPK), aspek kepribadian, &amp; Report NPK.</td></tr>
+          <tr><td><span class="badge badge-samapta">Binjaswing</span></td><td>Mengelola nilai samapta (NPS) &amp; Report NPS.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="info-box amber">
+        <span class="info-box-icon">⚠️</span>
+        <div class="info-box-body">
+          <strong>Hanya 5 role yang dapat dibuat:</strong> Super Admin, Opsdik, Kepala Sekolah, Danflight, dan Binjaswing. Saat membuat user, pastikan memilih minimal 1 sekolah agar user dapat melihat data.
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 16. PENANDATANGAN -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="penandatangan">
+      <div class="section-badge">✍️ Penandatangan</div>
+      <h2>Penandatangan</h2>
+      <p class="section-lead">Penandatangan adalah data pejabat yang menandatangani laporan resmi. Dikelola per jenis laporan dan per Sekolah. Hanya Super Admin dan Opsdik yang bisa mengakses.</p>
+
+      <div class="subsection">
+        <h3>Jenis Penandatangan</h3>
+        <table class="doc-table">
+          <thead><tr><th>Jenis</th><th>Digunakan Di</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Umum</strong></td><td>Fallback untuk semua laporan jika jenis spesifik belum diatur</td></tr>
+            <tr><td><strong>NPA (Akademik)</strong></td><td>Laporan NPA dan Cetak Laporan</td></tr>
+            <tr><td><strong>NPK (Kepribadian)</strong></td><td>Laporan NPK dan Ekspor NPK</td></tr>
+            <tr><td><strong>NPS (Samapta)</strong></td><td>Laporan NPS dan Ekspor NPS</td></tr>
+            <tr><td><strong>NPP (Kompilasi)</strong></td><td>Laporan NPP dan Cetak Laporan</td></tr>
+            <tr><td><strong>Danskadik</strong></td><td>Penandatangan kolom kiri NPP (Dan Skadik)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>Tambah Penandatangan</h3>
+        <div class="steps">
+          <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu Penandatangan di sidebar</h4></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Isi Nama, NRP, Pangkat, Jabatan, Jenis, dan Sekolah</h4><p>Pilih jenis sesuai laporan. 1 kombinasi jenis + sekolah hanya boleh 1 yang aktif.</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik Simpan</h4><p>Penandatangan otomatis muncul di laporan cetak &amp; ekspor Excel.</p></div></div>
+        </div>
+      </div>
+
+      <div class="info-box green">
+        <span class="info-box-icon">💡</span>
+        <div class="info-box-body">
+          <strong>Urutan fallback:</strong> Sistem mencari penandatangan spesifik (jenis + sekolah) → jenis global (tanpa sekolah) → umum per sekolah → umum global. Disarankan mengisi semua jenis agar laporan selalu bertanda tangan.
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 17. RUMUS -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="rumus">
+      <div class="section-badge">🧮 Referensi</div>
+      <h2>Rumus &amp; Predikat</h2>
+      <p class="section-lead">Ringkasan semua rumus penilaian yang digunakan di SIPP.</p>
+
+      <div class="subsection">
+        <h3>Rumus NPA (Akademik)</h3>
+        <div class="formula-box">
+          <div class="formula-box-label">Formula</div>
+          <div class="formula-box-text">NPA = Σ (Nilai × Bobot) ÷ Σ Bobot</div>
+          <div class="formula-box-note">Bobot diambil dari data Mata Pelajaran per Sekolah</div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>Rumus NPK (Kepribadian)</h3>
+        <div class="formula-box">
+          <div class="formula-box-label">Formula</div>
+          <div class="formula-box-text">NPK = 75 + Σ Poin Aspek</div>
+          <div class="formula-box-note">BS = +0.5 · B = +0.25 · C = 0 · K = -0.25 · KS = -0.5</div>
+        </div>
+
+        <h3 style="font-size:16px;font-weight:600;margin:20px 0 12px">Contoh Perhitungan NPK</h3>
+        <table class="doc-table">
+          <thead><tr><th>Aspek</th><th>Kriteria</th><th>Poin</th></tr></thead>
+          <tbody>
+            <tr><td>Sikap Mental &amp; Moral</td><td><span class="badge badge-yes">BS</span></td><td>+0.50</td></tr>
+            <tr><td>Kejujuran</td><td><span class="badge badge-yes">B</span></td><td>+0.25</td></tr>
+            <tr><td>Disiplin</td><td><span class="badge badge-yes">BS</span></td><td>+0.50</td></tr>
+            <tr><td>Kewibawaan</td><td>B</td><td>+0.25</td></tr>
+            <tr><td>Inisiatif</td><td>B</td><td>+0.25</td></tr>
+            <tr><td>Loyalitas</td><td>B</td><td>+0.25</td></tr>
+            <tr><td>Tanggung Jawab</td><td>B</td><td>+0.25</td></tr>
+            <tr><td>Ketabahan</td><td>B</td><td>+0.25</td></tr>
+            <tr><td>Sosiobilitas</td><td>C</td><td>0.00</td></tr>
+            <tr><td>Kedewasaan</td><td>B</td><td>+0.25</td></tr>
+            <tr style="background:#eef2ff"><td colspan="2"><strong>Total Poin</strong></td><td><strong>+2.75</strong></td></tr>
+            <tr style="background:#eef2ff"><td colspan="2"><strong>NPK (75 + 2.75)</strong></td><td><strong style="color:#4338ca;font-size:16px">77.75</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>Rumus NPS (Samapta)</h3>
+        <div class="formula-box">
+          <div class="formula-box-label">Catatan</div>
+          <div class="formula-box-text" style="font-size:20px">NPS = Nilai Akhir (input manual)</div>
+          <div class="formula-box-note">Versi sederhana — 5 field manual tanpa rumus otomatis. Nilai Akhir diisi langsung oleh Binjaswing.</div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>Rumus NPP (Kompilasi)</h3>
+        <div class="formula-box">
+          <div class="formula-box-label">Formula</div>
+          <div class="formula-box-text">NPP = (NPA × Bobot A%) + (NPK × Bobot K%) + (NPS × Bobot S%)</div>
+          <div class="formula-box-note">Default: NPA 70% + NPK 20% + NPS 10% · Bobot bisa diubah saat kompilasi · NPK = rata-rata semua periode</div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>Tabel Predikat</h3>
+        <table class="doc-table">
+          <thead><tr><th>Range Nilai</th><th>Predikat</th><th>Angka</th></tr></thead>
+          <tbody>
+            <tr><td>≥ 92</td><td style="font-weight:700;color:#059669">A</td><td>4.00</td></tr>
+            <tr><td>84 – 91.99</td><td style="font-weight:700;color:#059669">B+</td><td>3.50</td></tr>
+            <tr><td>76 – 83.99</td><td style="font-weight:700;color:#4f46e5">B</td><td>3.00</td></tr>
+            <tr><td>68 – 75.99</td><td style="font-weight:700;color:#2563eb">C+</td><td>2.50</td></tr>
+            <tr><td>60 – 67.99</td><td style="font-weight:700;color:#d97706">C</td><td>2.00</td></tr>
+            <tr><td>50 – 59.99</td><td style="font-weight:700;color:#dc2626">D</td><td>1.50</td></tr>
+            <tr><td>&lt; 50</td><td style="font-weight:700;color:#dc2626">E</td><td>1.00</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- 18. FAQ -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="section" id="faq">
+      <div class="section-badge">❓ FAQ</div>
+      <h2>Pertanyaan Umum</h2>
+      <p class="section-lead">Kumpulan pertanyaan yang sering ditanyakan pengguna SIPP.</p>
+
+      <div id="faq-list">
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Bagaimana jika lupa password?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a">Hubungi Super Admin atau Opsdik untuk reset password melalui menu <strong>Manage User</strong>.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Apa perbedaan NPA, NPK, NPS, dan NPP?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a"><strong>NPA</strong> = Nilai Prestasi Akademik (dari mata pelajaran)<br><strong>NPK</strong> = Nilai Prestasi Kepribadian (dari aspek per periode)<br><strong>NPS</strong> = Nilai Prestasi Samapta (5 field manual per putaran)<br><strong>NPP</strong> = Nilai Prestasi Pendidikan (kompilasi NPA + NPK + NPS dengan bobot)</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Apakah nilai bisa diubah setelah disimpan?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a">Ya. Setiap modul memiliki tombol Edit. Setelah diubah, nilai dan ranking otomatis terupdate karena NPP dihitung live.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Mengapa Dashboard / Leaderboard kosong?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a">Dashboard &amp; Leaderboard kosong jika belum ada nilai yang diinput. Pastikan sudah input minimal 1 data di modul NPA, NPK, atau NPS. Podium &amp; ranking minimal butuh 2 peserta dengan nilai.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Berapa rentang nilai NPK?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a">Minimum <strong>70</strong> (semua aspek KS: 75 + 10×(-0.5)) dan maksimum <strong>80</strong> (semua aspek BS: 75 + 10×(+0.5)).</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Bagaimana cara menambah mata pelajaran?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a">Buka menu <strong>Mata Pelajaran</strong> (tersarang di bawah Report NPA). Pilih Sekolah, lalu klik "Tambah Baru" untuk mapel baru, "Petakan ke Sekolah Ini" untuk memakai mapel dari sekolah lain, "Load Template" untuk template default, atau "Duplikasi" untuk menyalin mapel dari sekolah lain.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Apakah NPS (Samapta) dihitung otomatis?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a"><strong>Tidak.</strong> Modul Samapta memakai versi sederhana: 5 field manual (Jarak Lari, Nilai Lari/Garjas A, Garjas B, Nilai Akhir, Nilai Konversi) tanpa rumus. Binjaswing mengisi Nilai Akhir secara manual per putaran.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Apa itu Putaran di modul Samapta?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a">Putaran adalah pengelompokan data NPS (mirip periode di NPK). Buat putaran baru lewat menu <strong>Tambah Putaran</strong>, lalu input data NPS untuk putaran tersebut. Data putaran yang sama akan menimpa yang lama saat diimpor ulang.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Apa itu Kompilasi dan kapan harus dilakukan?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a">Kompilasi mengatur bobot NPA+NPK+NPS yang dipakai untuk menghitung NPP. NPP sendiri selalu dihitung <strong>live</strong> di Dashboard, Leaderboard, dan Report NPP — jadi Anda tidak wajib kompilasi manual untuk melihat ranking. Ubah bobot kapan saja lewat menu Kompilasi.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Bagaimana cara cetak laporan individu?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a">Buka menu <strong>Cetak Laporan</strong>, pilih angkatan, lalu klik "🖨️ Cetak" pada peserta yang diinginkan. Gunakan Ctrl+P / Cmd+P untuk menyimpan sebagai PDF.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Apakah ada batas jumlah periode kepribadian / putaran samapta?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a">Tidak ada batas. Buat periode/putaran sebanyak yang dibutuhkan. Semua histori tersimpan dan bisa dilihat di Report NPK / Report NPS.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Bagaimana menandatangani laporan?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a">Buka menu <strong>Penandatangan</strong>. Tambahkan nama, NRP, pangkat, jabatan, jenis laporan (umum/NPA/NPK/NPS/NPP/Danskadik), dan sekolah. Penandatangan otomatis muncul di laporan cetak dan ekspor Excel.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Mengapa saya tidak bisa melihat sekolah lain?<span class="faq-chevron">▼</span></div>
+          <div class="faq-a">Kepala Sekolah, Danflight, dan Binjaswing hanya dapat melihat sekolah yang ditugaskan saat akun dibuat. Super Admin dapat berganti skadik lewat dropdown <strong>"Pilih Skadik"</strong> di bawah sidebar. Hubungi Opsdik/Super Admin untuk menambah penugasan sekolah.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <div style="text-align:center;padding:48px 0 24px;color:var(--muted);font-size:13px">
+      <div style="font-family:'DM Serif Display',serif;font-size:24px;color:var(--ink);margin-bottom:8px">SIPP</div>
+      Sistem Informasi Penilaian Prestasi<br>
+      Manual Book v3.1 — Agustus 2026
+    </div>
+
+  </div><!-- /content -->
+</main>
+
+<button class="mobile-toggle" id="mobile-toggle" onclick="toggleSidebar()">☰</button>
+
+<script>
+// Reading progress bar
+window.addEventListener('scroll', function() {
+  var doc = document.documentElement;
+  var pct = (doc.scrollTop / (doc.scrollHeight - doc.clientHeight)) * 100;
+  document.getElementById('reading-bar').style.width = pct + '%';
+});
+
+// Nav click — smooth scroll + set active
+document.querySelectorAll('.nav-link').forEach(function(link) {
+  link.addEventListener('click', function(e) {
+    e.preventDefault();
+    var targetId = this.getAttribute('href').substring(1);
+    var target = document.getElementById(targetId);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelectorAll('.nav-link').forEach(function(l) { l.classList.remove('active'); });
+    this.classList.add('active');
+    if (window.innerWidth <= 900) closeSidebar();
+  });
+});
+
+// Intersection observer for auto-active
+var sections = document.querySelectorAll('section[id]');
+var navLinks = document.querySelectorAll('.nav-link');
+var observer = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) {
+    if (e.isIntersecting) {
+      navLinks.forEach(function(l) {
+        var href = l.getAttribute('href');
+        var hash = href ? href.split('#').pop() : '';
+        l.classList.remove('active');
+        if (hash === e.target.id) l.classList.add('active');
+      });
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(function(s) { observer.observe(s); });
+
+// FAQ toggle
+function toggleFaq(el) {
+  var answer  = el.nextElementSibling;
+  var chevron = el.querySelector('.faq-chevron');
+  var isOpen  = answer.classList.contains('open');
+  document.querySelectorAll('.faq-a').forEach(function(a) { a.classList.remove('open'); });
+  document.querySelectorAll('.faq-chevron').forEach(function(c) { c.classList.remove('open'); });
+  if (!isOpen) { answer.classList.add('open'); chevron.classList.add('open'); }
+}
+
+// Mobile sidebar
+function toggleSidebar() {
+  var sb = document.getElementById('sidebar');
+  var ov = document.getElementById('sidebar-overlay');
+  if (sb.classList.contains('open')) { sb.classList.remove('open'); ov.classList.remove('active'); }
+  else { sb.classList.add('open'); ov.classList.add('active'); }
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('active');
+}
+
+// Search filter
+document.getElementById('search-input').addEventListener('input', function() {
+  var q = this.value.toLowerCase();
+  document.querySelectorAll('.nav-link').forEach(function(link) {
+    var text = link.textContent.toLowerCase();
+    link.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
+});
+</script>
+</body>
+</html>

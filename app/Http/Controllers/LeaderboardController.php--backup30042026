@@ -1,0 +1,176 @@
+<?php
+namespace App\Http\Controllers;
+
+use App\Models\{Angkatan, PesertaDidik, PeriodeNilai, Nilai};
+use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx as XlsxWriter;
+use PhpOffice\PhpSpreadsheet\Style\{Fill, Border, Alignment};
+
+class LeaderboardController extends Controller {
+    public function index(Request $request) {
+        $user = auth()->user();
+        $angkatanId = $user->isPeserta()
+            ? $user->peserta?->angkatan_id
+            : $request->get('angkatan_id', Angkatan::where('aktif', true)->latest()->first()?->id);
+
+        $angkatan    = Angkatan::find($angkatanId);
+        $allAngkatan = Angkatan::where('aktif', true)->with('wingdik')->get();
+        $periodes    = PeriodeNilai::where('angkatan_id', $angkatanId)->orderBy('tanggal_mulai')->get();
+        $periodeId   = $request->get('periode_id', $periodes->last()?->id);
+        $aspek       = $request->get('aspek', 'total');
+        $q           = $request->get('q', '');
+
+        $pesertaQuery = PesertaDidik::where('angkatan_id', $angkatanId)
+            ->when($q, fn($query) => $query->where(function ($query) use ($q) {
+                $query->where('nama', 'like', "%$q%")->orWhere('nrp', 'like', "%$q%");
+            }))
+            ->with(['nilai' => fn($query) => $query->where('periode_nilai_id', $periodeId)])
+            ->get()
+            ->map(function ($p) use ($periodeId, $periodes) {
+                $n = $p->nilai->first();
+                $p->n_akd   = $n?->akademik ?? 0;
+                $p->n_fis   = $n?->fisik ?? 0;
+                $p->n_sik   = $n?->sikap ?? 0;
+                $p->n_kep   = $n?->kepemimpinan ?? 0;
+                $p->n_total = $n ? round(($n->akademik + $n->fisik + $n->sikap + $n->kepemimpinan) / 4, 2) : 0;
+
+                $prevPeriode = $periodes->filter(fn($pp) => $pp->id < $periodeId)->last();
+                if ($prevPeriode) {
+                    $prev = $p->nilai()->where('periode_nilai_id', $prevPeriode->id)->first();
+                    $p->tren = $p->n_total <=> ($prev?->total ?? 0);
+                } else {
+                    $p->tren = 0;
+                }
+                return $p;
+            });
+
+        $colMap  = ['total'=>'n_total','akd'=>'n_akd','fis'=>'n_fis','sik'=>'n_sik','kep'=>'n_kep'];
+        $sortCol = $colMap[$aspek] ?? 'n_total';
+        $sorted  = $pesertaQuery->sortByDesc($sortCol)->values();
+
+        // Pagination manual per 10
+        $page      = (int) $request->get('page', 1);
+        $perPage   = 10;
+        $total     = $sorted->count();
+        $paginated = $sorted->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $totalPeserta  = PesertaDidik::where('angkatan_id', $angkatanId)->count();
+        $periodeCount  = $periodes->count();
+        $rataAngkatan  = round($sorted->avg('n_total'), 1);
+        $lastPage      = (int) ceil($total / $perPage);
+
+        return view('leaderboard.index', compact(
+            'paginated', 'sorted', 'angkatan', 'allAngkatan', 'periodes',
+            'periodeId', 'aspek', 'q',
+            'totalPeserta', 'periodeCount', 'rataAngkatan',
+            'page', 'lastPage', 'total', 'perPage'
+        ));
+    }
+
+    public function ekspor(Request $request) {
+        $angkatanId = $request->get('angkatan_id');
+        $periodeId  = $request->get('periode_id');
+        $angkatan   = Angkatan::find($angkatanId);
+        $periode    = PeriodeNilai::find($periodeId);
+
+        $peserta = PesertaDidik::where('angkatan_id', $angkatanId)
+    ->with(['nilai' => fn($q) => $q->where('periode_nilai_id', $periodeId)])
+    ->get()
+    ->map(function ($p) {
+        $n = $p->nilai->first();
+        $p->n_akd   = $n?->akademik ?? 0;
+        $p->n_fis   = $n?->fisik ?? 0;
+        $p->n_sik   = $n?->sikap ?? 0;
+        $p->n_kep   = $n?->kepemimpinan ?? 0;
+        $p->n_total = $n ? round(($n->akademik + $n->fisik + $n->sikap + $n->kepemimpinan) / 4, 2) : 0;
+        return $p;
+    })
+    ->sortByDesc('n_total')
+    ->values();
+
+        // Buat XLSX pakai PhpSpreadsheet (tidak perlu package tambahan)
+        $spreadsheet = new Spreadsheet();
+        $sheet       = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Leaderboard');
+
+        // Judul
+        $sheet->mergeCells('A1:J1');
+        $sheet->setCellValue('A1', "LEADERBOARD — Angkatan {$angkatan?->nomor_angkatan} | {$periode?->label}");
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 13, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        // Header kolom
+        $headers = ['No','Nosis','NRP','Pangkat','Nama','Akademik','Fisik','Sikap','Kepemimpinan','Total'];
+        foreach ($headers as $i => $h) {
+            $col = chr(65 + $i);
+            $sheet->setCellValue("{$col}2", $h);
+            $sheet->getStyle("{$col}2")->applyFromArray([
+                'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '6366F1']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
+            ]);
+        }
+        $sheet->getRowDimension(2)->setRowHeight(20);
+
+        // Lebar kolom
+        $widths = ['A'=>6,'B'=>14,'C'=>14,'D'=>12,'E'=>32,'F'=>12,'G'=>12,'H'=>12,'I'=>16,'J'=>12];
+        foreach ($widths as $col => $w) $sheet->getColumnDimension($col)->setWidth($w);
+
+        // Data
+        foreach ($peserta as $i => $p) {
+            $row    = $i + 3;
+            $rank   = $i + 1;
+            $values = [$rank, $p->nosis, $p->nrp, $p->pangkat, $p->nama, $p->n_akd, $p->n_fis, $p->n_sik, $p->n_kep, $p->n_total];
+
+            foreach ($values as $j => $v) {
+                $col = chr(65 + $j);
+                $sheet->setCellValue("{$col}{$row}", $v);
+            }
+
+            // Highlight top 3
+            $rowColor = match($rank) {
+                1 => 'FEF3C7',
+                2 => 'DBEAFE',
+                3 => 'D1FAE5',
+                default => ($i % 2 === 0 ? 'FFFFFF' : 'F9FAFB'),
+            };
+            $bold = $rank <= 3;
+
+            $sheet->getStyle("A{$row}:J{$row}")->applyFromArray([
+                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $rowColor]],
+                'font'      => ['bold' => $bold],
+                'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+            ]);
+
+            // Center kolom selain Nama
+            foreach (['A','B','C','D','F','G','H','I','J'] as $col) {
+                $sheet->getStyle("{$col}{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            }
+            $sheet->getRowDimension($row)->setRowHeight(18);
+        }
+
+        // Footer info
+        $footerRow = $peserta->count() + 4;
+        $sheet->setCellValue("A{$footerRow}", "Dicetak: " . now()->format('d/m/Y H:i') . "  |  Total peserta: " . $peserta->count());
+        $sheet->getStyle("A{$footerRow}")->applyFromArray([
+            'font' => ['italic' => true, 'color' => ['rgb' => '6B7280'], 'size' => 10],
+        ]);
+
+        $filename = preg_replace('/[^A-Za-z0-9_\-.]/', '_', "leaderboard_{$angkatan?->nomor_angkatan}_{$periode?->label}.xlsx");
+
+        $writer = new XlsxWriter($spreadsheet);
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+}

@@ -1,0 +1,41 @@
+<?php
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\AspekKepribadian;
+
+class AspekKepribadianSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $aspek = [
+            [1, 'Mental dan Moral',
+             'Ketakwaan, Keyakinan dan Pengenalan Pancasila dan UUD 45, Sikap Semangat Juang, Toleransi, Budi Luhur.'],
+            [2, 'Kejujuran',
+             'Pegang Teguh Kebenaran, Keberanian Mengungkap Kebenaran, Kesadaran untuk Jujur, Perbuatan sesuai dengan perkataan.'],
+            [3, 'Disiplin',
+             'Ketertiban Sikap, Ketertiban Berkomunikasi, Ketertiban Waktu, Patuh pada Peraturan dan Ketentuan, Patuh pada Perintah.'],
+            [4, 'Kewibawaan',
+             'Penampilan, Mempengaruhi Orang Lain, Keberanian Tindakan, Kepercayaan Diri.'],
+            [5, 'Inisiatif',
+             'Kemampuan Menciptakan, Memanfaatkan Kesempatan, Menemukan Cara Kerja, Mengambil Resiko.'],
+            [6, 'Sosiabilitas',
+             'Adaptasi Lingkungan, Adaptasi Kondisi Sosial, Berkomunikasi, Perhatian Terhadap Lingkungan.'],
+            [7, 'Loyalitas',
+             'Rela Berkorban, Patuh pada Peraturan dan Ketentuan, Patuh pada Atasan, Patuh pada Teman dan Kelompok, Patuh pada Tugas.'],
+            [8, 'Tanggung Jawab',
+             'Taat pada Peraturan/Ketentuan, Rela Mengemban Tugas, Sedia Mengemban Tugas, Menerima Resiko.'],
+            [9, 'Kedewasaan',
+             'Keseimbangan Emosi dan Sikap Rasional, Kerja Sama, Pengendalian Diri, Penyesuaian terhadap Tugas.'],
+            [10, 'Ketabahan',
+             'Keuletan, Semangat, Pengendalian Diri, Rasional dan Realistis, Daya Tahan.'],
+        ];
+
+        foreach ($aspek as [$no, $nama, $desc]) {
+            AspekKepribadian::firstOrCreate(
+                ['nomor' => $no],
+                ['nama' => $nama, 'deskripsi' => $desc, 'aktif' => true]
+            );
+        }
+    }
+}

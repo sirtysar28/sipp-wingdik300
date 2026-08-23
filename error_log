@@ -1,0 +1,56 @@
+[29-Apr-2026 03:54:51 UTC] PHP Warning:  require(/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php): Failed to open stream: No such file or directory in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 34
+[29-Apr-2026 03:54:51 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php:34
+Stack trace:
+#0 {main}
+  thrown in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 34
+[29-Apr-2026 04:11:05 UTC] PHP Warning:  require(/home/u1526346/public_html/penilaian.dovlenseventy.com/../../simonik-app/vendor/autoload.php): Failed to open stream: No such file or directory in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:11:05 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u1526346/public_html/penilaian.dovlenseventy.com/../../simonik-app/vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php:35
+Stack trace:
+#0 {main}
+  thrown in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:14:37 UTC] PHP Warning:  require(/home/u1526346/penilaian.dovlenseventy.com/vendor/autoload.php): Failed to open stream: No such file or directory in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:14:37 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u1526346/penilaian.dovlenseventy.com/vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php:35
+Stack trace:
+#0 {main}
+  thrown in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:17:39 UTC] PHP Warning:  require(/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php): Failed to open stream: No such file or directory in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:17:39 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php:35
+Stack trace:
+#0 {main}
+  thrown in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:17:41 UTC] PHP Warning:  require(/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php): Failed to open stream: No such file or directory in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:17:41 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php:35
+Stack trace:
+#0 {main}
+  thrown in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:19:36 UTC] PHP Warning:  require(/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php): Failed to open stream: No such file or directory in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:19:36 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php:35
+Stack trace:
+#0 {main}
+  thrown in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:20:50 UTC] PHP Warning:  require(/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php): Failed to open stream: No such file or directory in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:20:50 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php:35
+Stack trace:
+#0 {main}
+  thrown in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:20:52 UTC] PHP Warning:  require(/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php): Failed to open stream: No such file or directory in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:20:52 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php:35
+Stack trace:
+#0 {main}
+  thrown in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 35
+[29-Apr-2026 04:24:24 UTC] PHP Warning:  require(/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php): Failed to open stream: No such file or directory in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 14
+[29-Apr-2026 04:24:24 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u1526346/public_html/penilaian.dovlenseventy.com/../vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php:14
+Stack trace:
+#0 {main}
+  thrown in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 14
+[29-Apr-2026 04:25:44 UTC] PHP Warning:  require(/home/u1526346/penilaian.dovlenseventy.com/vendor/autoload.php): Failed to open stream: No such file or directory in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 11
+[29-Apr-2026 04:25:44 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u1526346/penilaian.dovlenseventy.com/vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php:11
+Stack trace:
+#0 {main}
+  thrown in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 11
+[29-Apr-2026 04:25:47 UTC] PHP Warning:  require(/home/u1526346/penilaian.dovlenseventy.com/vendor/autoload.php): Failed to open stream: No such file or directory in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 11
+[29-Apr-2026 04:25:47 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u1526346/penilaian.dovlenseventy.com/vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php:11
+Stack trace:
+#0 {main}
+  thrown in /home/u1526346/public_html/penilaian.dovlenseventy.com/index.php on line 11
+[29-Apr-2026 05:50:37 UTC] PHP Fatal error:  Cannot redeclare App\Models\Angkatan::$table in /home/u1526346/public_html/penilaian.dovlenseventy.com/app/Models/Angkatan.php on line 9

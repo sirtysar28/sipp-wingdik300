@@ -1,0 +1,206 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\{Angkatan, PesertaDidik, KompilasiNilai, NilaiAkademik, NilaiKepribadian, NilaiSamapta, PeriodeNilai, Skadik, Penandatangan};
+use App\Services\NppCalculator;
+use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\{Fill, Border, Alignment, Font};
+
+class LaporanController extends Controller
+{
+    public function index(Request $request)
+    {
+        $allSkadik = Skadik::listForUser();
+        $skadikId  = $request->get('skadik_id', $allSkadik->first()?->id);
+
+        $angkatanQuery = Angkatan::where('aktif', true)->with('skadik')->orderBy('created_at', 'desc');
+        if ($skadikId) $angkatanQuery->where('skadik_id', $skadikId);
+        $allAngkatan = $angkatanQuery->get();
+        $angkatanId  = $request->get('angkatan_id', $allAngkatan->first()?->id);
+
+        $angkatan = Angkatan::with('skadik.lemdik')->find($angkatanId);
+        if (!$angkatan) {
+            return view('laporan.index', compact('allSkadik', 'skadikId', 'allAngkatan', 'angkatanId') + ['angkatan' => null, 'data' => collect()]);
+        }
+
+        // Gunakan perhitungan LIVE agar SEMUA peserta angkatan tampil (bulk),
+        // tidak hanya yg sudah ada record di kompilasi_nilai.
+        $data = NppCalculator::forAngkatan($angkatanId);
+
+        return view('laporan.index', compact('allSkadik', 'skadikId', 'allAngkatan', 'angkatanId', 'angkatan', 'data'));
+    }
+
+    /**
+     * Cetak laporan individu per peserta — HTML Print
+     */
+    public function cetakIndividu(Request $request)
+    {
+        $angkatanId = $request->get('angkatan_id');
+        $pesertaId  = $request->get('peserta_id');
+        $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
+        $peserta    = PesertaDidik::find($pesertaId);
+
+        if (!$angkatan || !$peserta) {
+            abort(404, 'Data tidak ditemukan.');
+        }
+
+        $kompilasi = KompilasiNilai::where('peserta_didik_id', $pesertaId)
+            ->where('angkatan_id', $angkatanId)->first();
+
+        // Jika peserta belum punya record kompilasi, bangun bobot dari kompilasi
+        // angkatan (atau default) agar laporan tetap lengkap & konsisten.
+        if (!$kompilasi) {
+            $ref = KompilasiNilai::where('angkatan_id', $angkatanId)->first();
+            $kompilasi = (object) [
+                'bobot_akademik'    => $ref->bobot_akademik    ?? NppCalculator::BOBOT_AKADEMIK_DEFAULT,
+                'bobot_kepribadian' => $ref->bobot_kepribadian ?? NppCalculator::BOBOT_KEPRIBADIAN_DEFAULT,
+                'bobot_samapta'     => $ref->bobot_samapta     ?? NppCalculator::BOBOT_SAMAPTA_DEFAULT,
+                'nilai_akademik'    => 0,
+                'nilai_kepribadian' => 0,
+                'nilai_samapta'     => 0,
+                'predikat_huruf'    => '-',
+                'predikat_angka'    => 0,
+            ];
+        }
+
+        $akademik = NilaiAkademik::where('peserta_didik_id', $pesertaId)
+            ->where('angkatan_id', $angkatanId)->first();
+
+        $samapta = NilaiSamapta::where('peserta_didik_id', $pesertaId)
+            ->where('angkatan_id', $angkatanId)->first();
+
+        $kepribadianList = NilaiKepribadian::with('periode', 'detail.aspek')
+            ->where('peserta_didik_id', $pesertaId)
+            ->orderBy('periode_nilai_id')->get();
+        $kepribadianAvg = $kepribadianList->avg('nilai_akhir') ?? 0;
+
+        // Penandatangan: kanan = Kepala Sekolah (kompilasi), kiri = Danskadik
+        $ttdKanan = Penandatangan::getPenandatangan('kompilasi', $angkatan?->skadik_id);
+        $ttdKiri = Penandatangan::getPenandatangan('danskadik', $angkatan?->skadik_id);
+
+        return view('laporan.cetak-individu', compact(
+            'angkatan', 'peserta', 'kompilasi', 'akademik', 'samapta', 'kepribadianList', 'kepribadianAvg',
+            'ttdKanan', 'ttdKiri'
+        ));
+    }
+
+    /**
+     * Cetak semua laporan rekap — HTML Print
+     */
+    public function cetakSemua(Request $request)
+    {
+        $angkatanId = $request->get('angkatan_id');
+        $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
+
+        if (!$angkatan) {
+            return redirect()->route('laporan.index')->with('error', 'Angkatan tidak ditemukan.');
+        }
+
+        // SEMUA peserta angkatan tampil (bulk) dengan NPP dihitung live.
+        $data = NppCalculator::forAngkatan($angkatanId);
+
+        // Penandatangan
+        $ttdKiri = Penandatangan::getPenandatangan('danskadik', $angkatan?->skadik_id);
+        $ttdKanan = Penandatangan::getPenandatangan('kompilasi', $angkatan?->skadik_id);
+
+        return view('laporan.cetak-semua', compact('angkatan', 'data', 'ttdKiri', 'ttdKanan'));
+    }
+
+    /**
+     * Ekspor rekap semua ke Excel
+     */
+    public function eksporSemua(Request $request)
+    {
+        $angkatanId = $request->get('angkatan_id');
+        $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
+
+        // SEMUA peserta angkatan tampil (bulk) dengan NPP dihitung live.
+        $data = NppCalculator::forAngkatan($angkatanId);
+
+        $spreadsheet = new Spreadsheet();
+        $sh = $spreadsheet->getActiveSheet();
+        $sh->setTitle('Rekap NPP');
+
+        $sh->mergeCells('A1:K1');
+        $sh->setCellValue('A1', 'NILAI PRESTASI PENDIDIKAN (NPP)');
+        $sh->getStyle('A1')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => '1A1A2E']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+        ]);
+
+        $sh->mergeCells('A2:K2');
+        $sh->setCellValue('A2', strtoupper($angkatan?->skadik?->lemdik?->wingdik ?? '') . ' — ' . strtoupper($angkatan?->skadik?->nama ?? ''));
+        $sh->getStyle('A2')->applyFromArray(['font' => ['bold' => true, 'size' => 12], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]]);
+
+        $sh->mergeCells('A3:K3');
+        $jurusan = $angkatan->jurusan ?? '';
+        $sh->setCellValue('A3', "SEKOLAH KEJURUAN LANJUTAN {$jurusan} TA. {$angkatan?->tahun_masuk}");
+        $sh->getStyle('A3')->applyFromArray(['font' => ['bold' => true, 'size' => 11], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]]);
+
+        $headers = ['Rank', 'NRP', 'Pangkat', 'Nama', 'NPA', 'N. Kepribadian', 'NPS', 'NPP', 'Predikat', 'Predikat Angka', 'Keterangan'];
+        foreach ($headers as $col => $h) {
+            $c = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1);
+            $sh->setCellValue($c . '5', $h);
+        }
+        $sh->getStyle('A5:K5')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'wrapText' => true],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+        ]);
+
+        $row = 6;
+        foreach ($data as $d) {
+            $sh->setCellValue("A{$row}", $d->rank);
+            $sh->setCellValue("B{$row}", $d->peserta->nrp);
+            $sh->setCellValue("C{$row}", $d->peserta->pangkat);
+            $sh->setCellValue("D{$row}", $d->peserta->nama);
+            $sh->setCellValue("E{$row}", $d->nilai_akademik);
+            $sh->setCellValue("F{$row}", $d->nilai_kepribadian);
+            $sh->setCellValue("G{$row}", $d->nilai_samapta);
+            $sh->setCellValue("H{$row}", $d->nilai_akhir);
+            $sh->setCellValue("I{$row}", $d->predikat_huruf);
+            $sh->setCellValue("J{$row}", $d->predikat_angka);
+            $sh->setCellValue("K{$row}", $this->getKeterangan($d->nilai_akhir));
+
+            for ($c = 1; $c <= 11; $c++) {
+                $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
+                $sh->getStyle("{$col}{$row}")->applyFromArray([
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+            }
+            $sh->getStyle("A{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sh->getStyle("E{$row}:J{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $row++;
+        }
+
+        $sh->getColumnDimension('A')->setWidth(6);
+        $sh->getColumnDimension('B')->setWidth(14);
+        $sh->getColumnDimension('C')->setWidth(12);
+        $sh->getColumnDimension('D')->setWidth(32);
+        $sh->getColumnDimension('E')->setWidth(12);
+        $sh->getColumnDimension('F')->setWidth(16);
+        $sh->getColumnDimension('G')->setWidth(10);
+        $sh->getColumnDimension('H')->setWidth(10);
+        $sh->getColumnDimension('I')->setWidth(10);
+        $sh->getColumnDimension('J')->setWidth(12);
+        $sh->getColumnDimension('K')->setWidth(14);
+
+        $filename = "NPP_Rekap_{$angkatan?->skadik?->nama}_Angkatan_{$angkatan?->nomor_angkatan}.xlsx";
+        $writer = new Xlsx($spreadsheet);
+        return response()->streamDownload(function() use ($writer) { $writer->save('php://output'); }, $filename);
+    }
+
+    private function getKeterangan($nilai): string
+    {
+        if ($nilai >= 85) return 'Sangat Baik';
+        if ($nilai >= 75) return 'Baik';
+        if ($nilai >= 65) return 'Cukup';
+        if ($nilai >= 55) return 'Kurang';
+        return 'Sangat Kurang';
+    }
+}

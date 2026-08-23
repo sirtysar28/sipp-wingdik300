@@ -1,0 +1,334 @@
+<?php
+namespace App\Http\Controllers;
+
+use App\Models\{Angkatan, PesertaDidik, PeriodeNilai, NilaiKepribadian, DetailKepribadian, AspekKepribadian};
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx as XlsxWriter;
+use PhpOffice\PhpSpreadsheet\Style\{Fill, Border, Alignment};
+
+class KepribadianController extends Controller
+{
+    // ── Daftar nilai kepribadian per angkatan & periode ──
+    public function index(Request $request)
+    {
+        $allAngkatan = Angkatan::where('aktif', true)->with('wingdik')->get();
+        $angkatanId  = $request->get('angkatan_id', $allAngkatan->first()?->id);
+        $angkatan    = Angkatan::find($angkatanId);
+        $periodes    = PeriodeNilai::where('angkatan_id', $angkatanId)->orderBy('tanggal_mulai')->get();
+        $periodeId   = $request->get('periode_id', $periodes->last()?->id);
+        $periode     = PeriodeNilai::find($periodeId);
+
+        $peserta = PesertaDidik::where('angkatan_id', $angkatanId)
+            ->orderBy('nama')
+            ->with(['nilaiKepribadian' => fn($q) => $q->where('periode_nilai_id', $periodeId)])
+            ->get()
+            ->map(function ($p) {
+                $p->kep = $p->nilaiKepribadian->first();
+                return $p;
+            });
+
+        $sudahDiinput = $peserta->filter(fn($p) => $p->kep)->count();
+
+        return view('kepribadian.index', compact(
+            'allAngkatan','angkatan','angkatanId',
+            'periodes','periodeId','periode',
+            'peserta','sudahDiinput'
+        ));
+    }
+
+    // ── Form input/edit nilai kepribadian satu peserta ──
+    public function form(Request $request, PesertaDidik $peserta)
+    {
+        $periodeId = $request->get('periode_id');
+        $periode   = PeriodeNilai::find($periodeId);
+        $aspekList = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+
+        $existing = NilaiKepribadian::where('peserta_didik_id', $peserta->id)
+            ->where('periode_nilai_id', $periodeId)
+            ->with('detail')
+            ->first();
+
+        // Map aspek_id => kriteria yg sudah ada
+        $existingDetail = $existing
+            ? $existing->detail->keyBy('aspek_kepribadian_id')
+            : collect();
+
+        return view('kepribadian.form', compact(
+            'peserta','periode','periodeId','aspekList','existing','existingDetail'
+        ));
+    }
+
+    // ── Simpan nilai kepribadian ─────────────────────────
+    public function store(Request $request, PesertaDidik $peserta)
+    {
+        $request->validate([
+            'periode_nilai_id' => 'required|exists:periode_nilai,id',
+            'kriteria'         => 'required|array',
+            'kriteria.*'       => 'required|in:KS,K,C,B,BS',
+            'penjelasan'       => 'nullable|string|max:2000',
+            'rekomendasi'      => 'nullable|string|max:1000',
+        ]);
+
+        DB::transaction(function () use ($request, $peserta) {
+            // Hitung total poin
+            $totalPoin = 0;
+            foreach ($request->kriteria as $aspekId => $kriteria) {
+                $totalPoin += NilaiKepribadian::poinKriteria($kriteria);
+            }
+            $nilaiAkhir = round(75 + $totalPoin, 2);
+
+            // Upsert header
+            $nk = NilaiKepribadian::updateOrCreate(
+                ['peserta_didik_id' => $peserta->id, 'periode_nilai_id' => $request->periode_nilai_id],
+                [
+                    'nilai_akhir'  => $nilaiAkhir,
+                    'penjelasan'   => $request->penjelasan,
+                    'rekomendasi'  => $request->rekomendasi,
+                    'input_oleh'   => auth()->id(),
+                ]
+            );
+
+            // Hapus detail lama lalu insert ulang
+            $nk->detail()->delete();
+            foreach ($request->kriteria as $aspekId => $kriteria) {
+                DetailKepribadian::create([
+                    'nilai_kepribadian_id' => $nk->id,
+                    'aspek_kepribadian_id' => $aspekId,
+                    'kriteria'             => $kriteria,
+                    'poin'                 => NilaiKepribadian::poinKriteria($kriteria),
+                ]);
+            }
+        });
+
+        return redirect()->route('kepribadian.index', [
+            'angkatan_id' => $peserta->angkatan_id,
+            'periode_id'  => $request->periode_nilai_id,
+        ])->with('success', "Nilai kepribadian {$peserta->nama} berhasil disimpan.");
+    }
+
+    // ── Lihat detail nilai satu peserta ─────────────────
+    public function show(PesertaDidik $peserta, Request $request)
+    {
+        $user = auth()->user();
+        if ($user->isPeserta() && $user->peserta_didik_id !== $peserta->id) abort(403);
+
+        $periodes  = PeriodeNilai::where('angkatan_id', $peserta->angkatan_id)
+            ->orderBy('tanggal_mulai')->get();
+        $periodeId = $request->get('periode_id', $periodes->last()?->id);
+
+        $riwayat = NilaiKepribadian::where('peserta_didik_id', $peserta->id)
+            ->with(['periode','detail.aspek'])
+            ->orderBy('periode_nilai_id')
+            ->get();
+
+        $current = $riwayat->where('periode_nilai_id', $periodeId)->first();
+        $aspekList = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+
+        // Data grafik tren nilai kepribadian
+        $grafikLabels = $riwayat->pluck('periode.label');
+        $grafikNilai  = $riwayat->pluck('nilai_akhir');
+
+        return view('kepribadian.show', compact(
+            'peserta','periodes','periodeId','riwayat',
+            'current','aspekList','grafikLabels','grafikNilai'
+        ));
+    }
+
+    // ── Kelola master aspek ──────────────────────────────
+    public function aspekIndex()
+    {
+        $aspek = AspekKepribadian::orderBy('nomor')->get();
+        return view('kepribadian.aspek', compact('aspek'));
+    }
+
+    public function aspekStore(Request $request)
+    {
+        $request->validate([
+            'nama'      => 'required|string|max:100',
+            'deskripsi' => 'nullable|string|max:500',
+        ]);
+        $nomor = AspekKepribadian::max('nomor') + 1;
+        AspekKepribadian::create([
+            'nomor'     => $nomor,
+            'nama'      => $request->nama,
+            'deskripsi' => $request->deskripsi,
+            'aktif'     => true,
+        ]);
+        return back()->with('success', 'Aspek berhasil ditambahkan.');
+    }
+
+    public function aspekUpdate(Request $request, AspekKepribadian $aspek)
+    {
+        $request->validate([
+            'nama'      => 'required|string|max:100',
+            'deskripsi' => 'nullable|string|max:500',
+            'aktif'     => 'boolean',
+        ]);
+        $aspek->update($request->only('nama','deskripsi','aktif'));
+        return back()->with('success', 'Aspek diperbarui.');
+    }
+
+    public function aspekDestroy(AspekKepribadian $aspek)
+    {
+        $aspek->update(['aktif' => false]);
+        return back()->with('success', 'Aspek dinonaktifkan.');
+    }
+
+    // ── Ekspor XLSX ──────────────────────────────────────
+    public function ekspor(Request $request)
+    {
+        $angkatanId = $request->get('angkatan_id');
+        $periodeId  = $request->get('periode_id');
+        $angkatan   = Angkatan::find($angkatanId);
+        $periode    = PeriodeNilai::find($periodeId);
+        $aspekList  = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+
+        $peserta = PesertaDidik::where('angkatan_id', $angkatanId)
+            ->orderBy('nama')
+            ->with(['nilaiKepribadian' => fn($q) => $q
+                ->where('periode_nilai_id', $periodeId)
+                ->with('detail.aspek')
+            ])
+            ->get();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Nilai Kepribadian');
+
+        // Judul
+        $totalCol = chr(65 + 4 + $aspekList->count());
+        $sheet->mergeCells("A1:{$totalCol}1");
+        $sheet->setCellValue('A1', "REKAP NILAI KEPRIBADIAN — Angkatan {$angkatan?->nomor_angkatan} | {$periode?->label}");
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold'=>true,'size'=>13,'color'=>['rgb'=>'FFFFFF']],
+            'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'4F46E5']],
+            'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        // Header
+        $headers = ['No','NRP','Pangkat','Nama'];
+        foreach ($aspekList as $a) $headers[] = $a->nomor.'. '.$a->nama;
+        $headers[] = 'Nilai Akhir';
+
+        foreach ($headers as $i => $h) {
+            $col = chr(65 + $i);
+            $sheet->setCellValue("{$col}2", $h);
+            $sheet->getStyle("{$col}2")->applyFromArray([
+                'font'      => ['bold'=>true,'color'=>['rgb'=>'FFFFFF'],'size'=>10],
+                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'6366F1']],
+                'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_CENTER,'wrapText'=>true],
+                'borders'   => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'FFFFFF']]],
+            ]);
+            $width = match(true) {
+                $i === 3    => 28,
+                $i >= 4 && $i < count($headers)-1 => 14,
+                default     => 8,
+            };
+            $sheet->getColumnDimension($col)->setWidth($width);
+        }
+        $sheet->getRowDimension(2)->setRowHeight(40);
+
+        // Data
+        foreach ($peserta as $pi => $p) {
+            $row = $pi + 3;
+            $nk  = $p->nilaiKepribadian->first();
+            $detailMap = $nk ? $nk->detail->keyBy('aspek_kepribadian_id') : collect();
+
+            $sheet->setCellValue("A{$row}", $pi+1);
+            $sheet->setCellValue("B{$row}", $p->nrp);
+            $sheet->setCellValue("C{$row}", $p->pangkat);
+            $sheet->setCellValue("D{$row}", $p->nama);
+
+            foreach ($aspekList as $j => $aspek) {
+                $col     = chr(65 + 4 + $j);
+                $detail  = $detailMap->get($aspek->id);
+                $kriteria = $detail?->kriteria ?? '—';
+                $sheet->setCellValue("{$col}{$row}", $kriteria);
+
+                // Warna per kriteria
+                $bgColor = match($kriteria) {
+                    'BS' => 'D1FAE5',
+                    'B'  => 'DBEAFE',
+                    'C'  => 'F9FAFB',
+                    'K'  => 'FEF3C7',
+                    'KS' => 'FEE2E2',
+                    default => 'FFFFFF',
+                };
+                $sheet->getStyle("{$col}{$row}")->applyFromArray([
+                    'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>$bgColor]],
+                    'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER],
+                ]);
+            }
+
+            // Nilai akhir
+            $nilaiCol = chr(65 + 4 + $aspekList->count());
+            $nilaiAkhir = $nk?->nilai_akhir ?? '—';
+            $sheet->setCellValue("{$nilaiCol}{$row}", $nilaiAkhir);
+            $sheet->getStyle("{$nilaiCol}{$row}")->applyFromArray([
+                'font'      => ['bold'=>true],
+                'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER],
+                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'EEF2FF']],
+            ]);
+
+            $bgRow = $pi % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
+            $sheet->getStyle("A{$row}:C{$row}")->applyFromArray([
+                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>$bgRow]],
+                'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER],
+            ]);
+            $sheet->getStyle("D{$row}")->applyFromArray([
+                'fill' => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>$bgRow]],
+            ]);
+            $sheet->getStyle("A{$row}:{$nilaiCol}{$row}")->applyFromArray([
+                'borders' => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'E5E7EB']]],
+            ]);
+            $sheet->getRowDimension($row)->setRowHeight(18);
+        }
+
+        // Keterangan kriteria
+        $footRow = $peserta->count() + 4;
+        $sheet->setCellValue("A{$footRow}", "Keterangan: BS=Baik Sekali(+0.5) | B=Baik(+0.25) | C=Cukup(0) | K=Kurang(-0.25) | KS=Kurang Sekali(-0.5) | Nilai Awal: 75");
+        $sheet->mergeCells("A{$footRow}:{$nilaiCol}{$footRow}");
+        $sheet->getStyle("A{$footRow}")->applyFromArray([
+            'font'      => ['italic'=>true,'size'=>9,'color'=>['rgb'=>'6B7280']],
+            'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'F3F4F6']],
+            'alignment' => ['horizontal'=>Alignment::HORIZONTAL_LEFT],
+        ]);
+
+        $filename = preg_replace('/[^A-Za-z0-9_\-.]/', '_',
+            "kepribadian_{$angkatan?->nomor_angkatan}_{$periode?->label}.xlsx");
+
+        $writer = new XlsxWriter($spreadsheet);
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type'  => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+    
+    public function createPeriode(Request $request)
+    {
+        $allAngkatan = Angkatan::where('aktif', true)->get();
+        return view('nilai.create-periode', compact('allAngkatan'));
+    }
+
+    public function storePeriode(Request $request)
+    {
+        $data = $request->validate([
+            'angkatan_id'     => 'required|exists:angkatan,id',
+            'label'           => 'required|string|max:50',
+            'tanggal_mulai'   => 'required|date',
+            'tanggal_selesai' => 'required|date|after:tanggal_mulai',
+        ]);
+        PeriodeNilai::where('angkatan_id', $data['angkatan_id'])->update(['aktif' => false]);
+        $data['aktif'] = true;
+        PeriodeNilai::create($data);
+        return redirect()->route('kepribadian.index', ['angkatan_id' => $data['angkatan_id']])
+            ->with('success', 'Periode baru berhasil dibuat.');
+    }
+}
+
+    // Tambah di atas closing brace class }
