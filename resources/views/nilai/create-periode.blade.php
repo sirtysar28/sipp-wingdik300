@@ -2,8 +2,21 @@
 @section('title', 'Periode Baru')
 @section('page-title', 'Buat Periode Baru')
 
+{{--
+  View dipakai 2 modul:
+  1. Nilai (lama, role admin/Opsdik)        → default route nilai.*
+  2. Kepribadian NPK (role Danflight dkk.)   → $storeRoute/$backRoute dikirim controller.
+  Revisi 26 Agustus 2026: sebelumnya form selalu POST ke nilai.periode.store
+  (role:admin) sehingga Danflight (admin_kepribadian) kena error 403
+  saat membuat periode baru di menu NPK.
+--}}
+@php
+  $storeRoute = $storeRoute ?? route('nilai.periode.store');
+  $backRoute  = $backRoute  ?? route('nilai.index');
+@endphp
+
 @section('topbar-actions')
-<a href="{{ route('nilai.index') }}" class="btn btn-outline btn-sm">← Kembali</a>
+<a href="{{ $backRoute }}" class="btn btn-outline btn-sm">← Kembali</a>
 @endsection
 
 @section('content')
@@ -13,7 +26,7 @@
       Setiap periode berlangsung selama <strong>2 minggu</strong>. Membuat periode baru akan menonaktifkan periode aktif sebelumnya.
     </div>
 
-    <form method="POST" action="{{ route('nilai.periode.store') }}">
+    <form method="POST" action="{{ $storeRoute }}">
       @csrf
 
       <div class="form-group">
@@ -54,7 +67,7 @@
 
       <div style="display:flex;gap:10px;margin-top:8px">
         <button type="submit" class="btn btn-primary">Buat Periode</button>
-        <a href="{{ route('nilai.index') }}" class="btn btn-outline">Batal</a>
+        <a href="{{ $backRoute }}" class="btn btn-outline">Batal</a>
       </div>
     </form>
   </div>

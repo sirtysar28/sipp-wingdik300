@@ -273,7 +273,13 @@ class KepribadianController extends Controller
         $allAngkatan = $skadikId
             ? Angkatan::where('skadik_id', $skadikId)->where('aktif', true)->orderBy('created_at', 'desc')->get()
             : Angkatan::where('aktif', true)->orderBy('created_at', 'desc')->get();
-        return view('nilai.create-periode', compact('allSkadik', 'skadikId', 'allAngkatan'));
+        // Revisi 26 Agustus 2026: kirim route store & back milik modul kepribadian
+        // agar Danflight (admin_kepribadian) tidak lagi ter-POST ke route
+        // nilai.periode.store (role:admin) yang mengakibatkan error 403.
+        return view('nilai.create-periode', compact('allSkadik', 'skadikId', 'allAngkatan') + [
+            'storeRoute' => route('kepribadian.periode.store'),
+            'backRoute'  => route('kepribadian.index'),
+        ]);
     }
 
     public function storePeriode(Request $request)
@@ -283,6 +289,54 @@ class KepribadianController extends Controller
         $data['aktif'] = true;
         PeriodeNilai::create($data);
         return redirect()->route('kepribadian.index',['angkatan_id'=>$data['angkatan_id']])->with('success','Periode baru berhasil dibuat.');
+    }
+
+    /**
+     * HARD DELETE periode NPK beserta seluruh isinya.
+     * Revisi 26 Agustus 2026: periode uji coba (mis. Periode 1 & 6) yang
+     * sudah tidak terpakai masih tampil di Report NPK — fitur ini menghapus
+     * permanen: detail_kepribadian → nilai_kepribadian → periode_nilai.
+     */
+    public function destroyPeriode(Request $request, PeriodeNilai $periode)
+    {
+        try {
+            $label       = $periode->label;
+            $angkatanId  = $periode->angkatan_id;
+            $wasAktif    = (bool) $periode->aktif;
+
+            $jumlahNilai = DB::transaction(function () use ($periode) {
+                $nilaiIds = NilaiKepribadian::where('periode_nilai_id', $periode->id)->pluck('id');
+                DetailKepribadian::whereIn('nilai_kepribadian_id', $nilaiIds)->delete();
+                $jumlah = NilaiKepribadian::where('periode_nilai_id', $periode->id)->delete();
+                $periode->delete(); // hard delete (model tidak pakai SoftDeletes)
+                return $jumlah;
+            });
+
+            // Bila periode yang dihapus adalah periode aktif, aktifkan periode terakhir yang tersisa
+            if ($wasAktif) {
+                $terakhir = PeriodeNilai::where('angkatan_id', $angkatanId)
+                    ->orderByDesc('tanggal_mulai')->first();
+                if ($terakhir) $terakhir->update(['aktif' => true]);
+            }
+
+            $msg = "Periode \"{$label}\" beserta {$jumlahNilai} data nilai kepribadian berhasil dihapus permanen.";
+            if ($request->expectsJson()) {
+                return response()->json(['success' => true, 'message' => $msg]);
+            }
+            // Redirect kembali hanya ke URL internal aplikasi (cek skema/host relatif)
+            $target = $request->input('redirect');
+            if ($target && !preg_match('#^https?://#i', $target)) {
+                return redirect()->to($target)->with('success', $msg);
+            }
+            return redirect()
+                ->route('report.npk', ['angkatan_id' => $angkatanId])
+                ->with('success', $msg);
+        } catch (\Throwable $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            }
+            return back()->with('error', 'Gagal menghapus periode: ' . $e->getMessage());
+        }
     }
 
     public function downloadTemplate(Request $request)

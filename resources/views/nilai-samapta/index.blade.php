@@ -137,10 +137,13 @@
             <td style="text-align:center;font-weight:600">{{ $d->nilai_lari ?? '-' }}</td>
             <td style="text-align:center;font-weight:600">{{ $d->garjas_b_nilai ?? '-' }}</td>
             <td style="text-align:center;background:#f5f3ff">
-              <span style="font-weight:700;font-size:15px;color:{{ $d->predikat['color'] }}">{{ $d->nilai_akhir ?? '-' }}</span>
-              <div style="font-size:9px;font-weight:600;color:{{ $d->predikat['color'] }}">{{ $d->predikat['label'] }}</div>
+              <span style="font-weight:700;font-size:15px">{{ $d->nilai_akhir ?? '-' }}</span>
             </td>
-            <td style="text-align:center">{{ $d->nilai_konversi ?? '-' }}</td>
+            {{-- Revisi 26 Agustus 2026: kategori Baik/Cukup/Kurang berbasis NILAI KONVERSI --}}
+            <td style="text-align:center">
+              <span style="font-weight:700;font-size:14px;color:{{ $d->predikat['color'] }}">{{ $d->nilai_konversi ?? '-' }}</span>
+              <div style="font-size:9px;font-weight:600;color:{{ $d->predikat['color'] }}">{{ $d->nilai_konversi !== null ? $d->predikat['label'] : '-' }}</div>
+            </td>
             <td>
               <a href="{{ route('nilai-samapta.edit', ['angkatan_id' => $angkatanId, 'peserta_id' => $d->peserta_didik_id, 'putaran_label' => $putaranLabel]) }}" class="btn btn-sm btn-outline" title="Edit">✏️</a>
             </td>

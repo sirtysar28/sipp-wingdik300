@@ -66,6 +66,7 @@ class ReportController extends Controller
 
             $data = collect();
             $periodes = collect();
+            $periodeKelola = collect();
             if ($angkatan) {
                 $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
 
@@ -82,6 +83,24 @@ class ReportController extends Controller
                     ->unique('id')
                     ->sortBy('tanggal_mulai')
                     ->values();
+
+                // Revisi 26 Agustus 2026: daftar periode utk kartu “Kelola Periode”
+                // (hard delete). Diambil dari tabel periode_nilai milik angkatan +
+                // periode yatim (punya nilai tapi periode->angkatan_id beda) agar
+                // semuanya bisa dibersihkan dari tabel report ini.
+                $periodeDariTabel = PeriodeNilai::where('angkatan_id', $angkatanId)
+                    ->withCount('nilaiKepribadian as jumlah_nilai')
+                    ->orderBy('tanggal_mulai')
+                    ->get();
+                $idDariTabel = $periodeDariTabel->pluck('id');
+                $periodeKelola = $periodeDariTabel
+                    ->concat($periodes->filter(fn($p) => !$idDariTabel->contains($p->id)))
+                    ->map(function ($p) {
+                        if (!isset($p->jumlah_nilai)) {
+                            $p->jumlah_nilai = NilaiKepribadian::where('periode_nilai_id', $p->id)->count();
+                        }
+                        return $p;
+                    })->values();
 
                 $data = $pesertaList->map(function ($p) use ($periodes, $semuaNilai) {
                     $nilaiPerPeriode = [];
@@ -102,7 +121,7 @@ class ReportController extends Controller
             }
 
             return view('report.report-npk', array_merge(compact(
-                'allSkadik','skadikId','allAngkatan','angkatanId','angkatan','data','periodes'
+                'allSkadik','skadikId','allAngkatan','angkatanId','angkatan','data','periodes','periodeKelola'
             ), ['title' => 'Report NPK — Nilai Prestasi Kepribadian', 'type' => 'NPK']));
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal memuat report NPK: ' . $e->getMessage());
@@ -110,6 +129,9 @@ class ReportController extends Controller
     }
 
     // ── Report NPS Angkatan ─────────────────────────────────
+    // Revisi 26 Agustus 2026: hasil TIDAK langsung ditampilkan.
+    // User memilih Sekolah–Angkatan–Putaran lalu menekan tombol
+    // "🔍 Tampilkan" (param ?tampilkan=1) untuk memuat hasil.
     public function reportNPS(Request $request)
     {
         try {
@@ -124,9 +146,12 @@ class ReportController extends Controller
             $putaranLabel = NilaiSamapta::normalizePutaran($request->get('putaran_label'));
             $putaranList  = $angkatanId ? NilaiSamapta::getPutaranList($angkatanId) : [];
 
+            // Baru muat data setelah tombol "Tampilkan" ditekan
+            $submitted = $request->filled('tampilkan');
+
             // Daftar BERBASIS PESERTA agar konsisten dengan NPA & NPK.
             $data = collect();
-            if ($angkatan) {
+            if ($angkatan && $submitted) {
                 $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
                 $nilaiMap = NilaiSamapta::where('angkatan_id', $angkatanId)
                     ->where('putaran_label', $putaranLabel)
@@ -143,7 +168,7 @@ class ReportController extends Controller
             }
 
             return view('report.report-angkatan', array_merge(compact(
-                'allSkadik','skadikId','allAngkatan','angkatanId','angkatan','data','putaranLabel','putaranList'
+                'allSkadik','skadikId','allAngkatan','angkatanId','angkatan','data','putaranLabel','putaranList','submitted'
             ), ['title' => 'Report NPS — Nilai Prestasi Samapta', 'type' => 'NPS']));
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal memuat report NPS: ' . $e->getMessage());

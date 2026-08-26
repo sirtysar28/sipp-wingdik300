@@ -160,8 +160,13 @@ class NilaiSamapta extends Model {
         ];
     }
 
+    /**
+     * Kategori kriteria (Baik Sekali / Baik / Cukup / Kurang).
+     * Revisi 26 Agustus 2026: dihitung dari NILAI KONVERSI
+     * (bukan nilai akhir) sesuai permintaan WingDik.
+     */
     public function getPredikatAttribute() {
-        $v = $this->nilai_akhir;
+        $v = $this->nilai_konversi;
         if ($v >= 85) return ['label' => 'Baik Sekali', 'color' => '#059669', 'icon' => '⭐'];
         if ($v >= 75) return ['label' => 'Baik', 'color' => '#2563eb', 'icon' => '✅'];
         if ($v >= 65) return ['label' => 'Cukup', 'color' => '#d97706', 'icon' => '⚠️'];

@@ -96,8 +96,9 @@
         <td style="font-weight:600">{{ $d->nilai_lari ?? '-' }}</td>
         <td style="font-weight:600">{{ $d->garjas_b_nilai ?? '-' }}</td>
         <td class="nps-val">{{ $d->nilai_akhir ?? '-' }}</td>
-        <td>{{ $d->nilai_konversi ?? '-' }}</td>
-        <td>{{ $d->nilai_akhir ? $predikat['label'] : '-' }}</td>
+        {{-- Revisi 26 Agustus 2026: predikat berbasis NILAI KONVERSI --}}
+        <td style="font-weight:600">{{ $d->nilai_konversi ?? '-' }}</td>
+        <td>{{ ($d->nilai_konversi !== null && (float)$d->nilai_konversi > 0) ? $predikat['label'] : '-' }}</td>
       </tr>
     @endforeach
 

@@ -8,4 +8,5 @@ class PeriodeNilai extends Model {
     protected $casts = ['tanggal_mulai' => 'date', 'tanggal_selesai' => 'date'];
     public function angkatan() { return $this->belongsTo(Angkatan::class); }
     public function nilai() { return $this->hasMany(Nilai::class); }
+    public function nilaiKepribadian() { return $this->hasMany(NilaiKepribadian::class); }
 }

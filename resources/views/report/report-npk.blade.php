@@ -42,6 +42,65 @@
   <div class="empty-state">Pilih angkatan untuk melihat report.</div>
 @else
 
+{{-- KEOLOLA PERIODE (hard delete)
+     Revisi 26 Agustus 2026: periode uji coba (mis. Periode 1 dan 6) bisa
+     dihapus permanen beserta seluruh data nilainya langsung dari sini,
+     sehingga tidak tampil lagi di tabel report. --}}
+@if((auth()->user()->isAdminKepribadian() || auth()->user()->canSeeAll()) && $periodeKelola->count() > 0)
+<details class="card" style="margin-bottom:14px;border:1px solid #fecaca;background:#fff7f7">
+  <summary style="cursor:pointer;font-weight:600;font-size:13px;color:#b91c1c;padding:4px 0">
+    🧹 Kelola Periode (Hapus Permanen) — {{$periodeKelola->count()}} periode terdaftar
+  </summary>
+  <div style="margin-top:12px;font-size:12px;color:#888;line-height:1.5">
+    Menghapus periode akan <strong style="color:#dc2626">menghapus permanen (hard delete)</strong>
+    periode beserta seluruh data nilai kepribadian &amp; detail aspek di dalamnya.
+    Gunakan untuk membersihkan periode uji coba / yang salah input.
+  </div>
+  <div class="table-wrap" style="margin-top:10px">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:center">No</th>
+          <th>Label Periode</th>
+          <th style="text-align:center">Rentang Tanggal</th>
+          <th style="text-align:center">Jumlah Data Nilai</th>
+          <th style="text-align:center">Status</th>
+          <th style="text-align:center">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach($periodeKelola as $i => $pk)
+        <tr>
+          <td style="text-align:center">{{ $i + 1 }}</td>
+          <td><strong>{{ $pk->label }}</strong></td>
+          <td style="text-align:center;font-size:12px">
+            {{ $pk->tanggal_mulai?->format('d M Y') }} – {{ $pk->tanggal_selesai?->format('d M Y') }}
+          </td>
+          <td style="text-align:center">{{ $pk->jumlah_nilai }} nilai</td>
+          <td style="text-align:center">
+            @if($pk->aktif)
+              <span class="badge badge-green">Aktif</span>
+            @else
+              <span class="badge" style="background:#f3f4f6;color:#666">Non-aktif</span>
+            @endif
+          </td>
+          <td style="text-align:center">
+            <form method="POST" action="{{ route('kepribadian.periode.destroy', $pk->id) }}"
+                  onsubmit="return confirm('HAPUS PERMANEN periode {{ $pk->label }} beserta {{ $pk->jumlah_nilai }} data nilai kepribadian?\nTindakan ini TIDAK bisa dibatalkan.')">
+              @csrf @method('DELETE')
+              <input type="hidden" name="redirect" value="{{ request()->fullUrlWithQuery([]) }}">
+              <button type="submit" class="btn btn-danger btn-sm">🗑️ Hard Delete</button>
+            </form>
+          </td>
+        </tr>
+        @endforeach
+      </tbody>
+    </table>
+  </div>
+</details>
+@endif
+
+
 {{-- Metrik --}}
 <div class="metric-grid" style="margin-bottom:16px">
   <div class="metric-card"><div class="metric-label">Total Peserta</div><div class="metric-value">{{ $data->count() }}</div></div>

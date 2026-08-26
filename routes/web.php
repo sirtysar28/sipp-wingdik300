@@ -54,19 +54,36 @@ Route::middleware(['auth', 'role:super_admin,admin'])->group(function () {
 // ══════════════════════════════════════════════════════════════
 Route::middleware(['auth', 'role:admin_kepribadian,admin'])->group(function () {
     Route::get('/kepribadian', [KepribadianController::class,'index'])->name('kepribadian.index');
-    Route::get('/kepribadian/{peserta}/show', [KepribadianController::class,'show'])->name('kepribadian.show');
-    Route::get('/kepribadian/ekspor', [KepribadianController::class,'ekspor'])->name('kepribadian.ekspor');
-    Route::get('/kepribadian/{peserta}/form',  [KepribadianController::class,'form'])->name('kepribadian.form');
-    Route::post('/kepribadian/{peserta}',       [KepribadianController::class,'store'])->name('kepribadian.store');
+
+    // ── PERIODE NPK ──
+    // PENTING: route periode WAJIB didaftarkan SEBELUM wildcard
+    // /kepribadian/{peserta} dan wildcard {peserta} dibatasi numerik.
+    // Revisi 26 Agustus 2026: sebelumnya POST /kepribadian/periode tertimpa
+    // wildcard POST /kepribadian/{peserta} (peserta='periode') sehingga
+    // Danflight (admin_kepribadian) kena error 404 saat Buat Periode Baru
+    // di menu NPK, sementara Opsdik (admin) selamat karena memakai
+    // route /nilai/periode yang berbeda.
+    Route::get('/kepribadian/periode/create',  [KepribadianController::class,'createPeriode'])->name('kepribadian.periode.create');
+    Route::post('/kepribadian/periode',         [KepribadianController::class,'storePeriode'])->name('kepribadian.periode.store');
+    // Revisi 26 Agustus 2026: hard delete periode NPK + seluruh isinya
+    Route::delete('/kepribadian/periode/{periode}', [KepribadianController::class,'destroyPeriode'])->name('kepribadian.periode.destroy');
+
     Route::get('/kepribadian/aspek',            [KepribadianController::class,'aspekIndex'])->name('kepribadian.aspek');
     Route::post('/kepribadian/aspek',           [KepribadianController::class,'aspekStore'])->name('kepribadian.aspek.store');
     Route::put('/kepribadian/aspek/{aspek}',    [KepribadianController::class,'aspekUpdate'])->name('kepribadian.aspek.update');
     Route::delete('/kepribadian/aspek/{aspek}', [KepribadianController::class,'aspekDestroy'])->name('kepribadian.aspek.destroy');
-    Route::get('/kepribadian/periode/create',  [KepribadianController::class,'createPeriode'])->name('kepribadian.periode.create');
-    Route::post('/kepribadian/periode',         [KepribadianController::class,'storePeriode'])->name('kepribadian.periode.store');
     Route::get('/kepribadian/import',           [KepribadianController::class,'importForm'])->name('kepribadian.import.form');
     Route::post('/kepribadian/import',          [KepribadianController::class,'import'])->name('kepribadian.import');
     Route::get('/kepribadian/template',         [KepribadianController::class,'downloadTemplate'])->name('kepribadian.template');
+    Route::get('/kepribadian/ekspor', [KepribadianController::class,'ekspor'])->name('kepribadian.ekspor');
+
+    // Wildcard peserta: dibatasi ID numerik agar tidak menimpa route literal di atas
+    Route::get('/kepribadian/{peserta}/show', [KepribadianController::class,'show'])
+        ->name('kepribadian.show')->whereNumber('peserta');
+    Route::get('/kepribadian/{peserta}/form',  [KepribadianController::class,'form'])
+        ->name('kepribadian.form')->whereNumber('peserta');
+    Route::post('/kepribadian/{peserta}',      [KepribadianController::class,'store'])
+        ->name('kepribadian.store')->whereNumber('peserta');
 });
 
 // ══════════════════════════════════════════════════════════════
