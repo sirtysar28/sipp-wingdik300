@@ -44,10 +44,14 @@
   <div class="empty-state">Pilih angkatan dan peserta untuk melihat laporan individual.</div>
 @else
 
-{{-- Tombol Cetak --}}
+{{-- Tombol Cetak — Revisi 29 Agustus 2026: cetak PDF dari fitur Report Individual
+     HANYA berlaku untuk super_admin + Opsdik (admin). Kepala Sekolah
+     (admin_akademik) bisa melihat report, tapi TIDAK bisa mencetak NPP. --}}
+@if(auth()->user()->canSeeAll())
 <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap">
   <a href="{{ route('laporan.cetak.individu', ['angkatan_id' => $angkatanId, 'peserta_id' => $pesertaId]) }}" target="_blank" class="btn btn-smart btn-sm">🖨️ Cetak Laporan (PDF)</a>
 </div>
+@endif
 
 {{-- Info Peserta --}}
 <div class="card" style="margin-bottom:16px">

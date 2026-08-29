@@ -69,6 +69,14 @@ class LaporanController extends Controller
         $akademik = NilaiAkademik::where('peserta_didik_id', $pesertaId)
             ->where('angkatan_id', $angkatanId)->first();
 
+        // Revisi 29 Agustus 2026: detail nilai per mata pelajaran ditampilkan
+        // di PDF NPP individu. Muat daftar matpel yang dipetakan ke sekolah
+        // angkatan tsb (urutan pivot = urutan index detail_nilai).
+        $mataPelajaran = collect();
+        if ($angkatan && $angkatan->skadik_id) {
+            $mataPelajaran = \App\Models\MataPelajaran::forSkadik($angkatan->skadik_id, true);
+        }
+
         $samapta = NilaiSamapta::where('peserta_didik_id', $pesertaId)
             ->where('angkatan_id', $angkatanId)->first();
 
@@ -82,7 +90,7 @@ class LaporanController extends Controller
         $ttdKiri = Penandatangan::getPenandatangan('danskadik', $angkatan?->skadik_id);
 
         return view('laporan.cetak-individu', compact(
-            'angkatan', 'peserta', 'kompilasi', 'akademik', 'samapta', 'kepribadianList', 'kepribadianAvg',
+            'angkatan', 'peserta', 'kompilasi', 'akademik', 'mataPelajaran', 'samapta', 'kepribadianList', 'kepribadianAvg',
             'ttdKanan', 'ttdKiri'
         ));
     }

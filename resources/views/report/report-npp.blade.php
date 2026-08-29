@@ -5,7 +5,10 @@
 @section('topbar-actions')
 @if($data->count() > 0)
 <a href="{{ route('report.npp.ekspor', ['angkatan_id' => $angkatanId]) }}" class="btn btn-success btn-sm">📥 Ekspor NPP</a>
+{{-- Revisi 29 Agustus 2026: cetak PDF NPP HANYA super_admin + Opsdik --}}
+@if(auth()->user()->canSeeAll())
 <a href="{{ route('laporan.cetak.semua', ['angkatan_id' => $angkatanId]) }}" class="btn btn-smart btn-sm" target="_blank">🖨️ Cetak NPP Angkatan</a>
+@endif
 @endif
 @endsection
 
@@ -167,7 +170,11 @@
                 </span>
               </td>
               <td style="text-align:center">
+                @if(auth()->user()->canSeeAll())
                 <a href="{{ route('laporan.cetak.individu', ['angkatan_id' => $angkatanId, 'peserta_id' => $d->peserta_didik_id]) }}" class="btn btn-sm btn-outline" title="Cetak Laporan Individu" target="_blank">🖨️</a>
+                @else
+                <span style="color:#bbb" title="Cetak hanya oleh Super Admin / Opsdik">—</span>
+                @endif
               </td>
             </tr>
           @endforeach

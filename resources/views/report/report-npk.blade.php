@@ -5,7 +5,10 @@
 <a href="{{ route('kepribadian.index') }}" class="btn btn-primary btn-sm">✏️ Input Manual</a>
 <a href="{{ route('kepribadian.import.form') }}" class="btn btn-outline btn-sm">📥 Bulk Upload</a>
 <a href="{{ route('report.npk.ekspor', ['angkatan_id'=>$angkatanId]) }}" class="btn btn-success btn-sm">⬇ Ekspor NPK</a>
+{{-- Revisi 29 Agustus 2026: cetak PDF NPK hanya super_admin/Opsdik + Danflight --}}
+@if(auth()->user()->canSeeAll() || auth()->user()->isAdminKepribadian())
 <a href="{{ route('report.npk.cetak', ['angkatan_id'=>$angkatanId]) }}" class="btn btn-smart btn-sm" target="_blank">🖨️ Cetak Laporan</a>
+@endif
 @endsection
 
 @section('content')

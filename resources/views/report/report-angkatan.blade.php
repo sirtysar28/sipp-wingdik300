@@ -6,12 +6,18 @@
 <a href="{{ route('nilai-akademik.manual.form', ['angkatan_id'=>$angkatanId]) }}" class="btn btn-primary btn-sm">✏️ Input</a>
 <a href="{{ route('nilai-akademik.import.form') }}" class="btn btn-outline btn-sm">📥 Upload</a>
 <a href="{{ route('report.npa.ekspor', ['angkatan_id'=>$angkatanId]) }}" class="btn btn-success btn-sm">⬇ Ekspor</a>
+{{-- Revisi 29 Agustus 2026: cetak PDF NPA hanya super_admin/Opsdik + Kepala Sekolah --}}
+@if(auth()->user()->canSeeAll() || auth()->user()->isAdminAkademik())
 <a href="{{ route('report.npa.cetak', ['angkatan_id'=>$angkatanId]) }}" class="btn btn-smart btn-sm" target="_blank">🖨️ Cetak Laporan</a>
+@endif
 @elseif($type === 'NPS')
 <a href="{{ route('nilai-samapta.manual.form', ['angkatan_id'=>$angkatanId,'putaran_label'=>$putaranLabel]) }}" class="btn btn-primary btn-sm">✏️ Input Manual</a>
 <a href="{{ route('nilai-samapta.template', ['angkatan_id'=>$angkatanId,'putaran_label'=>$putaranLabel]) }}" class="btn btn-outline btn-sm">📥 Template</a>
 <a href="{{ route('report.nps.ekspor', ['angkatan_id'=>$angkatanId,'putaran_label'=>$putaranLabel]) }}" class="btn btn-success btn-sm">⬇ Ekspor</a>
+{{-- Revisi 29 Agustus 2026: cetak PDF NPS hanya super_admin/Opsdik + Binjaswing --}}
+@if(auth()->user()->canSeeAll() || auth()->user()->isAdminSamapta())
 <a href="{{ route('report.nps.cetak', ['angkatan_id'=>$angkatanId,'putaran_label'=>$putaranLabel]) }}" class="btn btn-smart btn-sm" target="_blank">🖨️ Cetak Laporan</a>
+@endif
 @endif
 @endsection
 

@@ -153,22 +153,39 @@ Route::middleware(['auth', 'role:super_admin,admin'])->prefix('laporan')->name('
 // ══════════════════════════════════════════════════════════════
 //  REPORT — NPA, NPK, NPS, INDIVIDUAL
 // ══════════════════════════════════════════════════════════════
+//  Revisi 29 Agustus 2026 - pembagian hak CETAK PDF:
+//  - PDF NPA -> super_admin, Opsdik(admin), Kepala Sekolah (admin_akademik)
+//  - PDF NPK -> super_admin, Opsdik(admin), Danflight (admin_kepribadian)
+//  - PDF NPS -> super_admin, Opsdik(admin), Binjaswing (admin_samapta)
+//  - PDF NPP -> HANYA super_admin + Opsdik (lihat grup /laporan)
+// ===============================================================
 Route::middleware(['auth', 'role:super_admin,admin,admin_akademik,admin_kepribadian,admin_samapta'])->group(function () {
     // Report NPA (akademik bisa lihat)
     Route::get('/report/npa',      [ReportController::class, 'reportNPA'])->name('report.npa');
     Route::get('/report/npa/ekspor',[ReportController::class, 'eksporNPA'])->name('report.npa.ekspor');
-    Route::get('/report/npa/cetak', [ReportController::class, 'cetakNPA'])->name('report.npa.cetak');
 
-    // Report NPK (kepribadian bisa lihat) — redirect ke Rekap (satu sumber)
+    // Report NPK (kepribadian bisa lihat) - redirect ke Rekap (satu sumber)
     Route::get('/report/npk',      [ReportController::class, 'reportNPK'])->name('report.npk');
     Route::get('/report/npk/ekspor',[ReportController::class, 'eksporNPK'])->name('report.npk.ekspor');
-    Route::get('/report/npk/cetak', [ReportController::class, 'cetakNPK'])->name('report.npk.cetak');
 
     // Report NPS (samapta bisa lihat)
     Route::get('/report/nps',      [ReportController::class, 'reportNPS'])->name('report.nps');
     Route::get('/report/nps/ekspor',[ReportController::class, 'eksporNPS'])->name('report.nps.ekspor');
-    Route::get('/report/nps/cetak', [NilaiSamaptaController::class, 'cetak'])->name('report.nps.cetak');
+});
 
+// -- CETAK PDF NPA: super_admin + Opsdik + Kepala Sekolah --
+Route::middleware(['auth', 'role:super_admin,admin,admin_akademik'])->group(function () {
+    Route::get('/report/npa/cetak', [ReportController::class, 'cetakNPA'])->name('report.npa.cetak');
+});
+
+// -- CETAK PDF NPK: super_admin + Opsdik + Danflight --
+Route::middleware(['auth', 'role:super_admin,admin,admin_kepribadian'])->group(function () {
+    Route::get('/report/npk/cetak', [ReportController::class, 'cetakNPK'])->name('report.npk.cetak');
+});
+
+// -- CETAK PDF NPS: super_admin + Opsdik + Binjaswing --
+Route::middleware(['auth', 'role:super_admin,admin,admin_samapta'])->group(function () {
+    Route::get('/report/nps/cetak', [NilaiSamaptaController::class, 'cetak'])->name('report.nps.cetak');
 });
 
 // ══════════════════════════════════════════════════════════════

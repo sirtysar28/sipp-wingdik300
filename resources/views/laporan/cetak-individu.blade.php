@@ -88,25 +88,80 @@
   </tr>
 </table>
 
-{{-- A. Nilai Akademik --}}
+{{-- A. Nilai Akademik — DETAIL PER MATA PELAJARAN (Revisi 29 Agustus 2026) --}}
+@php
+  $detailNilai = [];
+  if ($akademik && is_array($akademik->detail_nilai)) {
+      $detailNilai = $akademik->detail_nilai;
+  } elseif ($akademik && $akademik->detail_nilai) {
+      $detailNilai = json_decode($akademik->detail_nilai, true) ?: [];
+  }
+  $totalHN = $mataPelajaran->sum(fn($mp) => $mp->harga_nilai_calc);
+  $sumMPHN = 0;
+@endphp
 <div class="section-title">A. NILAI PRESTASI AKADEMIK</div>
 <table>
   <thead>
     <tr>
-      <th>Komponen</th>
-      <th>Nilai</th>
-      <th>Bobot</th>
-      <th>Nilai Terbobot</th>
+      <th style="width:36px">No</th>
+      <th class="text-left">Mata Pelajaran</th>
+      <th style="width:44px">JP</th>
+      <th style="width:44px">Bobot</th>
+      <th style="width:52px">HN</th>
+      <th style="width:60px">Nilai</th>
+      <th style="width:76px">Nilai × HN</th>
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td class="text-left">Nilai Prestasi Akademik (NPA)</td>
-      <td>{{ $akademik ? $akademik->npa : '-' }}</td>
-      <td>{{ $kompilasi ? $kompilasi->bobot_akademik . '%' : '70%' }}</td>
-      <td>{{ $kompilasi ? round(($akademik ? $akademik->npa : 0) * $kompilasi->bobot_akademik / 100, 2) : '-' }}</td>
+    @if(count($detailNilai) > 0)
+      @foreach($detailNilai as $i => $valMP)
+      @php
+        $mp = $mataPelajaran[$i] ?? null;
+        $hnMP = $mp ? $mp->harga_nilai_calc : 0;
+        $sumMPHN += ($valMP ?? 0) * $hnMP;
+      @endphp
+      <tr>
+        <td>{{ $i + 1 }}</td>
+        <td class="text-left">{{ $mp->nama ?? 'Mata Pelajaran ' . ($i + 1) }}</td>
+        <td>{{ $mp->jp ?? '-' }}</td>
+        <td>{{ $mp->bobot ?? '-' }}</td>
+        <td>{{ $hnMP ?: '-' }}</td>
+        <td>{{ $valMP !== null && $valMP !== '' ? $valMP : '-' }}</td>
+        <td>{{ ($valMP !== null && $valMP !== '' && $hnMP) ? round(($valMP * $hnMP), 2) : '-' }}</td>
+      </tr>
+      @endforeach
+    @elseif($mataPelajaran->count() > 0)
+      @foreach($mataPelajaran as $i => $mp)
+      <tr>
+        <td>{{ $i + 1 }}</td>
+        <td class="text-left">{{ $mp->nama }}</td>
+        <td>{{ $mp->jp }}</td>
+        <td>{{ $mp->bobot }}</td>
+        <td>{{ $mp->harga_nilai_calc }}</td>
+        <td>-</td>
+        <td>-</td>
+      </tr>
+      @endforeach
+    @else
+      <tr><td colspan="7">Belum ada data nilai akademik</td></tr>
+    @endif
+    <tr style="background:#f0f0f0;font-weight:bold">
+      <td colspan="4" class="text-left">JUMLAH</td>
+      <td>{{ $totalHN }}</td>
+      <td>{{ $akademik ? $akademik->jumlah_nilai : '-' }}</td>
+      <td>{{ count($detailNilai) > 0 ? round($sumMPHN, 2) : '-' }}</td>
     </tr>
   </tbody>
+</table>
+<table style="margin-top:4px">
+  <tr>
+    <td class="text-left" style="border:none;font-weight:bold">Nilai Prestasi Akademik (NPA)</td>
+    <td style="border:none">: {{ $akademik ? $akademik->npa : '-' }}</td>
+    <td style="border:none;font-weight:bold">Bobot Akademik</td>
+    <td style="border:none">: {{ $kompilasi ? $kompilasi->bobot_akademik . '%' : '70%' }}</td>
+    <td style="border:none;font-weight:bold">Nilai Terbobot</td>
+    <td style="border:none">: {{ $kompilasi && $akademik ? round($akademik->npa * $kompilasi->bobot_akademik / 100, 2) : '-' }}</td>
+  </tr>
 </table>
 
 {{-- B. Nilai Kepribadian --}}

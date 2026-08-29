@@ -101,16 +101,31 @@
   {{-- PODIUM NPP --}}
   <div class="card">
     <div class="card-title">🏆 Podium NPP Angkatan</div>
-    @php $top3 = $kompilasiData->take(3); @endphp
+    @php
+      $top3 = $kompilasiData->take(3);
+      // Revisi 29 Agustus 2026: link podium disesuaikan hak akses cetak.
+      // super_admin/Opsdik -> cetak PDF individu; Kepala Sekolah -> lihat
+      // report individu; role lain (Danflight/BinJas) tanpa link.
+      $bolehCetak  = auth()->user()->canSeeAll();
+      $bolehLihat  = auth()->user()->isAdminAkademik();
+    @endphp
     @if($top3->count() >= 2)
     <div style="display:flex;align-items:flex-end;justify-content:center;gap:12px;margin:8px 0 4px">
 
       {{-- Rank 2 --}}
       @if($top3->count() >= 2)
       <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        @if($bolehCetak)
         <a href="{{ route('laporan.cetak.individu', ['angkatan_id'=>$angkatanId,'peserta_id'=>$top3[1]->peserta_didik_id]) }}"
            style="font-size:11px;color:#4f46e5;font-weight:500;text-align:center;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;text-decoration:none"
            title="Lihat laporan {{ $top3[1]->peserta->nama }}">{{ $top3[1]->peserta->nama }}</a>
+        @elseif($bolehLihat)
+        <a href="{{ route('report.individu', ['angkatan_id'=>$angkatanId,'peserta_id'=>$top3[1]->peserta_didik_id]) }}"
+           style="font-size:11px;color:#4f46e5;font-weight:500;text-align:center;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;text-decoration:none"
+           title="Lihat laporan {{ $top3[1]->peserta->nama }}">{{ $top3[1]->peserta->nama }}</a>
+        @else
+        <span style="font-size:11px;color:#555;font-weight:500;text-align:center;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">{{ $top3[1]->peserta->nama }}</span>
+        @endif
         <div style="font-size:13px;font-weight:600;text-align:center">{{ round($top3[1]->nilai_akhir, 2) }}</div>
         <div style="width:84px;height:52px;border-radius:8px 8px 0 0;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700">2</div>
       </div>
@@ -119,9 +134,17 @@
       {{-- Rank 1 --}}
       <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
         <div style="width:28px;height:28px;border-radius:50%;background:#fbbf24;color:#78350f;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">★</div>
+        @if($bolehCetak)
         <a href="{{ route('laporan.cetak.individu', ['angkatan_id'=>$angkatanId,'peserta_id'=>$top3[0]->peserta_didik_id]) }}"
            style="font-size:11px;color:#4f46e5;font-weight:500;text-align:center;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;text-decoration:none"
            title="Lihat laporan {{ $top3[0]->peserta->nama }}">{{ $top3[0]->peserta->nama }}</a>
+        @elseif($bolehLihat)
+        <a href="{{ route('report.individu', ['angkatan_id'=>$angkatanId,'peserta_id'=>$top3[0]->peserta_didik_id]) }}"
+           style="font-size:11px;color:#4f46e5;font-weight:500;text-align:center;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;text-decoration:none"
+           title="Lihat laporan {{ $top3[0]->peserta->nama }}">{{ $top3[0]->peserta->nama }}</a>
+        @else
+        <span style="font-size:11px;color:#555;font-weight:500;text-align:center;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">{{ $top3[0]->peserta->nama }}</span>
+        @endif
         <div style="font-size:18px;font-weight:700;text-align:center;color:#4f46e5">{{ round($top3[0]->nilai_akhir, 2) }}</div>
         <div style="width:84px;height:72px;border-radius:8px 8px 0 0;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700">1</div>
       </div>
@@ -129,9 +152,17 @@
       {{-- Rank 3 --}}
       @if($top3->count() >= 3)
       <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        @if($bolehCetak)
         <a href="{{ route('laporan.cetak.individu', ['angkatan_id'=>$angkatanId,'peserta_id'=>$top3[2]->peserta_didik_id]) }}"
            style="font-size:11px;color:#4f46e5;font-weight:500;text-align:center;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;text-decoration:none"
            title="Lihat laporan {{ $top3[2]->peserta->nama }}">{{ $top3[2]->peserta->nama }}</a>
+        @elseif($bolehLihat)
+        <a href="{{ route('report.individu', ['angkatan_id'=>$angkatanId,'peserta_id'=>$top3[2]->peserta_didik_id]) }}"
+           style="font-size:11px;color:#4f46e5;font-weight:500;text-align:center;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;text-decoration:none"
+           title="Lihat laporan {{ $top3[2]->peserta->nama }}">{{ $top3[2]->peserta->nama }}</a>
+        @else
+        <span style="font-size:11px;color:#555;font-weight:500;text-align:center;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">{{ $top3[2]->peserta->nama }}</span>
+        @endif
         <div style="font-size:13px;font-weight:600;text-align:center">{{ round($top3[2]->nilai_akhir, 2) }}</div>
         <div style="width:84px;height:38px;border-radius:8px 8px 0 0;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700">3</div>
       </div>
@@ -150,10 +181,16 @@
     @forelse($kompilasiData->slice(3,7)->values() as $i => $k)
     @php
       $rank = $i + 4;
-      $link = route('laporan.cetak.individu', ['angkatan_id'=>$angkatanId,'peserta_id'=>$k->peserta_didik_id]);
+      $link = $bolehCetak
+          ? route('laporan.cetak.individu', ['angkatan_id'=>$angkatanId,'peserta_id'=>$k->peserta_didik_id])
+          : ($bolehLihat ? route('report.individu', ['angkatan_id'=>$angkatanId,'peserta_id'=>$k->peserta_didik_id]) : null);
     @endphp
+    @if($link)
     <a href="{{ $link }}"
        style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f5;text-decoration:none;color:inherit">
+    @else
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f5;text-decoration:none;color:inherit">
+    @endif
       <span style="width:20px;text-align:center;font-size:12px;color:#aaa;font-weight:600">{{ $rank }}</span>
       <div style="width:30px;height:30px;border-radius:50%;background:#eef2ff;color:#4f46e5;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">
         {{ strtoupper(collect(explode(' ',$k->peserta->nama))->slice(1)->map(fn($w)=>$w[0]??'')->join('')) }}
@@ -166,7 +203,11 @@
         </div>
       </div>
       <span style="font-size:13px;font-weight:600;min-width:40px;text-align:right;color:#4f46e5">{{ round($k->nilai_akhir,2) }}</span>
+    @if($link)
     </a>
+    @else
+    </div>
+    @endif
     @empty
     <div class="empty-state" style="padding:20px">Belum ada data rank 4–10</div>
     @endforelse
