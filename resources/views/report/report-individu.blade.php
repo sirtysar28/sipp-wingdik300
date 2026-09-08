@@ -14,7 +14,7 @@
   <form method="GET" action="{{ route('report.individu') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
     <div>
       <label style="font-size:11px;margin-bottom:3px">Sekolah</label>
-      <select name="skadik_id" onchange="this.form.submit()">
+      <select name="skadik_id">
         @foreach($allSkadik as $sk)
           <option value="{{ $sk->id }}" {{ $sk->id==$skadikId?'selected':'' }}>{{ $sk->nama }}</option>
         @endforeach
@@ -22,7 +22,7 @@
     </div>
     <div>
       <label style="font-size:11px;margin-bottom:3px">Angkatan</label>
-      <select name="angkatan_id" onchange="this.form.submit()">
+      <select name="angkatan_id">
         @foreach($allAngkatan as $ang)
           <option value="{{ $ang->id }}" {{ $ang->id==$angkatanId?'selected':'' }}>Angkatan {{ $ang->nomor_angkatan }} ({{ $ang->tahun_masuk }})</option>
         @endforeach
@@ -30,17 +30,37 @@
     </div>
     <div>
       <label style="font-size:11px;margin-bottom:3px">Peserta</label>
-      <select name="peserta_id" onchange="this.form.submit()">
+      {{-- Revisi 2 Sept 2026: daftar peserta di bawah ini dijamin berasal dari
+           Sekolah–Angkatan terpilih (guard di controller). Tidak ada auto-submit;
+           user memilih lengkap lalu klik "🔍 Tampilkan". --}}
+      <select name="peserta_id">
         <option value="">— Pilih Peserta —</option>
         @foreach($pesertaList as $p)
           <option value="{{ $p->id }}" {{ $p->id==$pesertaId?'selected':'' }}>{{ $p->nama }} ({{ $p->nrp }})</option>
         @endforeach
       </select>
     </div>
+    <div>
+      <button type="submit" name="tampilkan" value="1" class="btn btn-primary btn-sm" style="height:38px">🔍 Tampilkan</button>
+    </div>
   </form>
 </div>
 
-@if(!$peserta)
+@if(!($submitted ?? false))
+  {{-- Belum klik Tampilkan --}}
+  <div class="card">
+    <div class="empty-state" style="padding:48px">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:40px;height:40px;margin:0 auto 12px;opacity:.4"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <div style="font-size:15px;font-weight:500;color:#888;margin-top:8px">
+        Pilih <strong>Sekolah</strong>, <strong>Angkatan</strong> &amp; <strong>Peserta</strong>, lalu klik tombol
+        <strong style="color:#4f46e5">🔍 Tampilkan</strong> untuk memuat laporan individual.
+      </div>
+      <div style="font-size:12px;color:#aaa;margin-top:6px">
+        Daftar peserta pada drop-down dijamin berasal dari Sekolah &amp; Angkatan yang dipilih.
+      </div>
+    </div>
+  </div>
+@elseif(!$peserta)
   <div class="empty-state">Pilih angkatan dan peserta untuk melihat laporan individual.</div>
 @else
 

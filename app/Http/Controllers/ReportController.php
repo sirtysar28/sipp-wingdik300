@@ -10,22 +10,65 @@ use PhpOffice\PhpSpreadsheet\Style\{Fill, Border, Alignment};
 
 class ReportController extends Controller
 {
+    /**
+     * Resolver filter Sekolah–Angkatan yang KONSISTEN (Revisi 2 September 2026).
+     *
+     * Masalah lama: saat user mengganti dropdown Sekolah lalu form ter-submit,
+     * angkatan_id lama (milik sekolah lain) ikut terkirim sehingga report/
+     * drop-down peserta menampilkan “sekolah-angkatan yang keliru”.
+     *
+     * Aturan:
+     * 1. Jika URL membawa angkatan_id TANPA skadik_id (link langsung 📋 dari
+     *    tabel NPA/NPK/NPS ke report individu), sekolah otomatis diambil dari
+     *    angkatan tsb (selama masih dalam wewenang user).
+     * 2. angkatan_id WAJIB milik sekolah terpilih. Jika tidak (stale), di-reset
+     *    ke angkatan pertama sekolah terpilih.
+     *
+     * @return array{0: Collection, 1: mixed, 2: Collection, 3: mixed, 4: Angkatan|null}
+     *         [allSkadik, skadikId, allAngkatan, angkatanId, angkatan]
+     */
+    private function resolveSekolahAngkatan(Request $request): array
+    {
+        $allSkadik = Skadik::listForUser();
+        $skadikId  = $request->get('skadik_id', $allSkadik->first()?->id);
+
+        $angkatanId = $request->get('angkatan_id');
+        if (!$request->filled('skadik_id') && $angkatanId) {
+            $skadikAsal = Angkatan::find($angkatanId)?->skadik_id;
+            if ($skadikAsal && $allSkadik->pluck('id')->contains($skadikAsal)) {
+                $skadikId = $skadikAsal;
+            }
+        }
+
+        $angkatanQuery = Angkatan::where('aktif', true)->with('skadik')->orderBy('created_at', 'desc');
+        if ($skadikId) $angkatanQuery->where('skadik_id', $skadikId);
+        $allAngkatan = $angkatanQuery->get();
+
+        if (!$request->filled('angkatan_id') || !$allAngkatan->pluck('id')->contains($angkatanId)) {
+            $angkatanId = $allAngkatan->first()?->id;
+        }
+
+        $angkatan = Angkatan::with('skadik.lemdik')->find($angkatanId);
+
+        return [$allSkadik, $skadikId, $allAngkatan, $angkatanId, $angkatan];
+    }
+
     // ── Report NPA Angkatan ──────────────────────────────────
+    // Revisi 2 September 2026: hasil TIDAK langsung ditampilkan. User memilih
+    // Sekolah–Angkatan lalu menekan tombol "🔍 Tampilkan" (?tampilkan=1)
+    // supaya yakin kombinasi sekolah-angkatan yang dimuat tidak keliru.
     public function reportNPA(Request $request)
     {
         try {
-            $allSkadik = Skadik::listForUser();
-            $skadikId  = $request->get('skadik_id', $allSkadik->first()?->id);
-            $angkatanQuery = Angkatan::where('aktif', true)->with('skadik')->orderBy('created_at', 'desc');
-            if ($skadikId) $angkatanQuery->where('skadik_id', $skadikId);
-            $allAngkatan = $angkatanQuery->get();
-            $angkatanId  = $request->get('angkatan_id', $allAngkatan->first()?->id);
-            $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
+            [$allSkadik, $skadikId, $allAngkatan, $angkatanId, $angkatan] = $this->resolveSekolahAngkatan($request);
+
+            // Baru muat data setelah tombol "Tampilkan" ditekan
+            $submitted = $request->filled('tampilkan');
 
             // Daftar BERBASIS PESERTA agar jumlah siswa konsisten dengan NPK & NPS:
             // semua peserta tampil, termasuk yang belum diberi NPA.
             $data = collect();
-            if ($angkatan) {
+            if ($angkatan && $submitted) {
                 $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
                 $nilaiMap = NilaiAkademik::where('angkatan_id', $angkatanId)->get()->keyBy('peserta_didik_id');
                 $data = $pesertaList->map(function ($p) use ($nilaiMap) {
@@ -45,7 +88,7 @@ class ReportController extends Controller
             }
 
             return view('report.report-angkatan', array_merge(compact(
-                'allSkadik','skadikId','allAngkatan','angkatanId','angkatan','data', 'mataPelajaran'
+                'allSkadik','skadikId','allAngkatan','angkatanId','angkatan','data', 'mataPelajaran','submitted'
             ), ['title' => 'Report NPA — Nilai Prestasi Akademik', 'type' => 'NPA']));
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal memuat report NPA: ' . $e->getMessage());
@@ -56,18 +99,16 @@ class ReportController extends Controller
     public function reportNPK(Request $request)
     {
         try {
-            $allSkadik = Skadik::listForUser();
-            $skadikId  = $request->get('skadik_id', $allSkadik->first()?->id);
-            $angkatanQuery = Angkatan::where('aktif', true)->with('skadik')->orderBy('created_at', 'desc');
-            if ($skadikId) $angkatanQuery->where('skadik_id', $skadikId);
-            $allAngkatan = $angkatanQuery->get();
-            $angkatanId  = $request->get('angkatan_id', $allAngkatan->first()?->id);
-            $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
+            [$allSkadik, $skadikId, $allAngkatan, $angkatanId, $angkatan] = $this->resolveSekolahAngkatan($request);
+
+            // Revisi 2 September 2026: hasil hanya dimuat setelah tombol
+            // "🔍 Tampilkan" (?tampilkan=1) ditekan — selaras dengan NPA & NPS.
+            $submitted = $request->filled('tampilkan');
 
             $data = collect();
             $periodes = collect();
             $periodeKelola = collect();
-            if ($angkatan) {
+            if ($angkatan && $submitted) {
                 $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
 
                 // Query nilai kepribadian sekali — load periode relation juga
@@ -121,7 +162,7 @@ class ReportController extends Controller
             }
 
             return view('report.report-npk', array_merge(compact(
-                'allSkadik','skadikId','allAngkatan','angkatanId','angkatan','data','periodes','periodeKelola'
+                'allSkadik','skadikId','allAngkatan','angkatanId','angkatan','data','periodes','periodeKelola','submitted'
             ), ['title' => 'Report NPK — Nilai Prestasi Kepribadian', 'type' => 'NPK']));
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal memuat report NPK: ' . $e->getMessage());
@@ -135,13 +176,7 @@ class ReportController extends Controller
     public function reportNPS(Request $request)
     {
         try {
-            $allSkadik = Skadik::listForUser();
-            $skadikId  = $request->get('skadik_id', $allSkadik->first()?->id);
-            $angkatanQuery = Angkatan::where('aktif', true)->with('skadik')->orderBy('created_at', 'desc');
-            if ($skadikId) $angkatanQuery->where('skadik_id', $skadikId);
-            $allAngkatan = $angkatanQuery->get();
-            $angkatanId  = $request->get('angkatan_id', $allAngkatan->first()?->id);
-            $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
+            [$allSkadik, $skadikId, $allAngkatan, $angkatanId, $angkatan] = $this->resolveSekolahAngkatan($request);
 
             $putaranLabel = NilaiSamapta::normalizePutaran($request->get('putaran_label'));
             $putaranList  = $angkatanId ? NilaiSamapta::getPutaranList($angkatanId) : [];
@@ -176,22 +211,37 @@ class ReportController extends Controller
     }
 
     // ── Report Individual (Akhir Pendidikan) ─────────────────
+    // Revisi 2 September 2026:
+    // 1) GUARD: angkatan wajib milik sekolah terpilih — sebelumnya saat user
+    //    mengganti dropdown Sekolah, angkatan_id lama (milik sekolah lain) ikut
+    //    ter-submit sehingga drop-down Peserta menampilkan daftar siswa dari
+    //    sekolah/angkatan yang keliru (mis. bukan Sejurlaba APS — Angkatan 1).
+    // 2) Tombol "🔍 Tampilkan": hasil individu hanya dimuat setelah user
+    //    menekan tombol tsb. Link langsung ?peserta_id= tetap langsung menampilkan.
     public function reportIndividu(Request $request)
     {
         try {
-            $allSkadik = Skadik::listForUser();
-            $skadikId  = $request->get('skadik_id', $allSkadik->first()?->id);
-            $angkatanQuery = Angkatan::where('aktif', true)->with('skadik')->orderBy('created_at', 'desc');
-            if ($skadikId) $angkatanQuery->where('skadik_id', $skadikId);
-            $allAngkatan = $angkatanQuery->get();
-            $angkatanId  = $request->get('angkatan_id', $allAngkatan->first()?->id);
-            $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
+            [$allSkadik, $skadikId, $allAngkatan, $angkatanId, $angkatan] = $this->resolveSekolahAngkatan($request);
             $pesertaId  = $request->get('peserta_id');
 
-            $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
+            // Drop-down Peserta HARUS berisi siswa dari angkatan terpilih
+            // (bukan peserta yatim / sekolah lain).
+            $pesertaList = $angkatanId
+                ? PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get()
+                : collect();
 
-            $peserta = $pesertaId ? PesertaDidik::find($pesertaId) : null;
+            // Hasil hanya dimuat setelah tombol "Tampilkan" ditekan.
+            // Kecuali link langsung dengan peserta_id (dari tabel NPA/NPK/NPS)
+            // agar tombol 📋 tetap langsung membuka laporan siswa tsb.
+            $submitted = $request->filled('tampilkan') || $request->filled('peserta_id');
+
+            $peserta = null;
             $akademik = null; $kepribadianList = null; $kepribadianAvg = null; $samapta = null; $kompilasi = null; $mataPelajaran = collect();
+
+            if ($submitted && $pesertaId) {
+                // Pastikan peserta yg diminta memang anggota angkatan terpilih
+                $peserta = $pesertaList->first(fn($p) => $p->id == $pesertaId) ?? null;
+            }
 
             if ($peserta) {
                 $akademik = NilaiAkademik::where('peserta_didik_id', $pesertaId)->where('angkatan_id', $angkatanId)->first();
@@ -223,7 +273,7 @@ class ReportController extends Controller
             }
 
             return view('report.report-individu', compact(
-                'allSkadik','skadikId','allAngkatan','angkatanId','angkatan',
+                'allSkadik','skadikId','allAngkatan','angkatanId','angkatan','submitted',
                 'pesertaList','pesertaId','peserta',
                 'akademik','kepribadianList','kepribadianAvg','samapta','kompilasi','mataPelajaran'
             ));
@@ -236,15 +286,10 @@ class ReportController extends Controller
     public function reportNPP(Request $request)
     {
         try {
-            $allSkadik = Skadik::listForUser();
-            $skadikId  = $request->get('skadik_id', $allSkadik->first()?->id);
+            // Revisi 2 Sept 2026: pakai resolver konsisten (anti sekolah-angkatan
+            // keliru) — perilaku filter NPP lainnya tidak berubah.
+            [$allSkadik, $skadikId, $allAngkatan, $angkatanId, $angkatan] = $this->resolveSekolahAngkatan($request);
 
-            $angkatanQuery = Angkatan::where('aktif', true)->with('skadik')->orderBy('created_at', 'desc');
-            if ($skadikId) $angkatanQuery->where('skadik_id', $skadikId);
-            $allAngkatan = $angkatanQuery->get();
-            $angkatanId  = $request->get('angkatan_id', $allAngkatan->first()?->id);
-
-            $angkatan = Angkatan::with('skadik.lemdik')->find($angkatanId);
             if (!$angkatan) {
                 return view('report.report-npp', compact('allSkadik', 'skadikId', 'allAngkatan', 'angkatanId') + [
                     'angkatan' => null, 'data' => collect(), 'stats' => []

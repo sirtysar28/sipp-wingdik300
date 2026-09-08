@@ -32,9 +32,12 @@
 @php
   // Revisi 26 Agustus 2026: pada NPS hasil hanya tampil setelah tombol
   // "Tampilkan" ditekan (bukan auto-submit saat dropdown diganti).
-  $isNPS    = ($type === 'NPS');
-  $autoSub  = $isNPS ? '' : 'this.form.submit()';
-  $showResult = !$isNPS || ($submitted ?? false);
+  // Revisi 2 September 2026: NPA juga memakai pola yang sama — user memilih
+  // Sekolah–Angkatan lalu klik "🔍 Tampilkan" supaya yakin kombinasi
+  // sekolah-angkatan yang dimuat tidak keliru.
+  $isNPS      = ($type === 'NPS');
+  $autoSub    = ''; // tidak ada auto-submit: hasil hanya via tombol Tampilkan
+  $showResult = $submitted ?? false;
 @endphp
 
 {{-- Filter --}}
@@ -65,23 +68,31 @@
         @endforeach
       </select>
     </div>
+    @endif
+    {{-- Revisi 2 Sept 2026: tombol "Tampilkan" untuk NPA & NPS — hasil baru
+         dimuat setelah tombol ini ditekan, memastikan sekolah-angkatan yang
+         tampil benar-benar sesuai pilihan user. --}}
     <div>
       <button type="submit" name="tampilkan" value="1" class="btn btn-primary btn-sm" style="height:38px">🔍 Tampilkan</button>
     </div>
-    @endif
   </form>
 </div>
 
 @if(!$angkatan)
   <div class="empty-state">Pilih angkatan untuk melihat report.</div>
-@elseif($isNPS && !$showResult)
-  {{-- NPS: belum klik Tampilkan --}}
+@elseif(!$showResult)
+  {{-- NPA & NPS: belum klik Tampilkan --}}
   <div class="card">
     <div class="empty-state" style="padding:48px">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:40px;height:40px;margin:0 auto 12px;opacity:.4"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
       <div style="font-size:15px;font-weight:500;color:#888;margin-top:8px">
-        Pilih <strong>Sekolah</strong>, <strong>Angkatan</strong> &amp; <strong>Putaran</strong>, lalu klik tombol
-        <strong style="color:#4f46e5">🔍 Tampilkan</strong> untuk memuat hasil Report NPS.
+        @if($isNPS)
+          Pilih <strong>Sekolah</strong>, <strong>Angkatan</strong> &amp; <strong>Putaran</strong>, lalu klik tombol
+          <strong style="color:#4f46e5">🔍 Tampilkan</strong> untuk memuat hasil Report NPS.
+        @else
+          Pilih <strong>Sekolah</strong> &amp; <strong>Angkatan</strong>, lalu klik tombol
+          <strong style="color:#4f46e5">🔍 Tampilkan</strong> untuk memuat hasil Report NPA.
+        @endif
       </div>
     </div>
   </div>

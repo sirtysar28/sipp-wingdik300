@@ -21,13 +21,21 @@
   .fw-bold { font-weight: bold; }
   .nps-val { font-weight: bold; font-size: 10pt; }
 
-  .ttd-area { margin-top: 30px; display: flex; justify-content: space-between; }
-  .ttd-box { text-align: center; width: 280px; }
-  .ttd-box .tempat { font-size: 10pt; margin-bottom: 4px; }
-  .ttd-box .jabatan { font-size: 10pt; margin-bottom: 50px; }
-  .ttd-box .nama { font-size: 10pt; font-weight: bold; text-decoration: underline; margin-bottom: 2px; }
-  .ttd-box .pangkat { font-size: 9pt; }
-  .ttd-box .nrp { font-size: 9pt; }
+  /* ── Blok Tanda Tangan (Revisi 8 September 2026) ──
+     1) "Mengetahui," di atas jabatan Komandan Skadron Pendidikan.
+     2) Baris kiri & kanan DIJAMIN sejajar (jabatan-jabatan, nama-nama,
+        pangkat·NRP-pangkat·NRP) karena memakai baris tabel yang sama
+        (sebelumnya memakai dua kolom flex terpisah).
+     3) Pangkat & NRP tetap ditulis BERSEBELAHAN satu baris:
+        mis. "Letkol Pnb - NRP. 489201". */
+  table.ttd-table { width: 100%; border-collapse: collapse; margin-top: 30px; page-break-inside: avoid; break-inside: avoid; }
+  table.ttd-table tr { page-break-inside: avoid; break-inside: avoid; }
+  table.ttd-table td { border: none; padding: 1px 6px; font-size: 10pt; line-height: 1.4; text-align: center; vertical-align: top; }
+  table.ttd-table td.tepi { width: 38%; }
+  table.ttd-table td.spasi { width: 24%; }
+  table.ttd-table tr.ruang td { height: 55px; }
+  table.ttd-table td.nama { font-weight: bold; text-decoration: underline; }
+  table.ttd-table td.pangkat-nrp { font-size: 9pt; }
 
   .footer-info { margin-top: 10px; font-size: 8pt; color: #555; display: flex; justify-content: space-between; }
 
@@ -112,23 +120,48 @@
   </tbody>
 </table>
 
-<div class="ttd-area">
-  <div class="ttd-box">
-    <div class="tempat">{{ $angkatan->skadik->lemdik->kota ?? '' }}, {{ date('d F Y') }}</div>
-    <div class="jabatan">Danskadik</div>
-    <div class="nama">{{ $angkatan->skadik->kepala_sekolah ?? '................................' }}</div>
-    <div class="pangkat">{{ $angkatan->skadik->pangkat_kepala ?? '' }}</div>
-    <div class="nrp">{{ $angkatan->skadik->nrp_kepala ? 'NRP. ' . $angkatan->skadik->nrp_kepala : '' }}</div>
-  </div>
-  <div></div>
-  <div class="ttd-box">
-    <div class="tempat">{{ $angkatan->skadik->lemdik->kota ?? '' }}, {{ date('d F Y') }}</div>
-    <div class="jabatan">Kepala Sekolah</div>
-    <div class="nama">{{ $angkatan->skadik->kepala_sekolah ?? '................................' }}</div>
-    <div class="pangkat">{{ $angkatan->skadik->pangkat_kepala ?? '' }}</div>
-    <div class="nrp">{{ $angkatan->skadik->nrp_kepala ? 'NRP. ' . $angkatan->skadik->nrp_kepala : '' }}</div>
-  </div>
-</div>
+@php
+  // Revisi 2 September 2026 — kolom tanda tangan Danskadik (tetap di KIRI/awal)
+  // menjadi dua baris: "Mengetahui, Komandan Skadron Pendidikan 303".
+  // Nama skadron dinamis dari Lemdik sekolah.
+  $lemdikNama = trim($angkatan->skadik->lemdik->nama ?? '');
+  $jabatanDanskadik = 'Komandan ' . ($lemdikNama !== '' ? $lemdikNama : 'Skadron Pendidikan');
+
+  // Baris tunggal pangkat + NRP sejajar kanan-kiri, mis:
+  //   "Letkol Pnb - NRP. 489201"
+  $sk = $angkatan->skadik;
+  $pangkatNrp = trim(($sk->pangkat_kepala ? $sk->pangkat_kepala : '') .
+                    (($sk->pangkat_kepala && $sk->nrp_kepala) ? ' - ' : '') .
+                    ($sk->nrp_kepala ? 'NRP. ' . $sk->nrp_kepala : ''));
+
+  // Revisi 8 September 2026 — nilai per kolom tanda tangan (kiri/kanan)
+  $namaTtd = $sk->kepala_sekolah ?? '................................';
+  $jabatanKiri  = $jabatanDanskadik;
+  $jabatanKanan = 'Kepala Sekolah';
+@endphp
+<table class="ttd-table">
+  <tr>
+    <td class="tepi">Mengetahui,</td>
+    <td class="spasi"></td>
+    <td class="tepi">{{ $angkatan->skadik->lemdik->kota ?? '' }}, {{ date('d F Y') }}</td>
+  </tr>
+  <tr>
+    <td class="tepi">{{ $jabatanKiri }}</td>
+    <td class="spasi"></td>
+    <td class="tepi">{{ $jabatanKanan }}</td>
+  </tr>
+  <tr class="ruang"><td colspan="3"></td></tr>
+  <tr>
+    <td class="tepi nama">{{ $namaTtd }}</td>
+    <td class="spasi"></td>
+    <td class="tepi nama">{{ $namaTtd }}</td>
+  </tr>
+  <tr>
+    <td class="tepi pangkat-nrp">{{ $pangkatNrp }}</td>
+    <td class="spasi"></td>
+    <td class="tepi pangkat-nrp">{{ $pangkatNrp }}</td>
+  </tr>
+</table>
 
 <div class="footer-info">
   <span>Dicetak dari SIPP</span>

@@ -19,13 +19,20 @@
   th { background: #e0e0e0; font-weight: bold; }
   .text-left { text-align: left; }
 
-  .ttd-area { margin-top: 40px; display: flex; justify-content: space-between; }
-  .ttd-box { text-align: center; width: 280px; }
-  .ttd-box .tempat { font-size: 11pt; margin-bottom: 4px; }
-  .ttd-box .jabatan { font-size: 11pt; margin-bottom: 60px; }
-  .ttd-box .nama { font-size: 11pt; font-weight: bold; text-decoration: underline; margin-bottom: 2px; }
-  .ttd-box .pangkat { font-size: 10pt; }
-  .ttd-box .nrp { font-size: 10pt; }
+  /* ── Blok Tanda Tangan (Revisi 8 September 2026) ──
+     1) "Mengetahui," di atas jabatan Komandan Skadron Pendidikan.
+     2) Baris kiri & kanan DIJAMIN sejajar (jabatan-jabatan, nama-nama,
+        pangkat·NRP-pangkat·NRP) karena memakai baris tabel yang sama.
+     3) Pangkat & NRP ditulis BERSEBELAHAN satu baris:
+        mis. "Letkol Pnb - NRP. 489201". */
+  table.ttd-table { width: 100%; border-collapse: collapse; margin-top: 40px; page-break-inside: avoid; break-inside: avoid; }
+  table.ttd-table tr { page-break-inside: avoid; break-inside: avoid; }
+  table.ttd-table td { border: none; padding: 1px 6px; font-size: 11pt; line-height: 1.4; text-align: center; vertical-align: top; }
+  table.ttd-table td.tepi { width: 38%; }
+  table.ttd-table td.spasi { width: 24%; }
+  table.ttd-table tr.ruang td { height: 65px; }
+  table.ttd-table td.nama { font-weight: bold; text-decoration: underline; }
+  table.ttd-table td.pangkat-nrp { font-size: 10pt; }
 
   .footer-info { margin-top: 12px; font-size: 9pt; color: #555; display: flex; justify-content: space-between; }
 
@@ -122,40 +129,53 @@
   </tbody>
 </table>
 
-{{-- Tanda Tangan: KIRI = Danskadik, KANAN = Kepala Sekolah --}}
-<div class="ttd-area">
-  {{-- KIRI: Danskadik --}}
-  <div class="ttd-box">
-    <div class="jabatan">Danskadik</div>
-    @if($ttdKiri)
-      <div class="nama">{{ $ttdKiri->nama }}</div>
-      @if($ttdKiri->pangkat)<div class="pangkat">{{ $ttdKiri->pangkat }}</div>@endif
-      @if($ttdKiri->nrp)<div class="nrp">NRP. {{ $ttdKiri->nrp }}</div>@endif
-    @else
-      <div class="nama">{{ $angkatan->skadik->kepala_sekolah ?? '................................' }}</div>
-      <div class="pangkat">{{ $angkatan->skadik->pangkat_kepala ?? '' }}</div>
-      @if($angkatan->skadik->nrp_kepala)<div class="nrp">NRP. {{ $angkatan->skadik->nrp_kepala }}</div>@endif
-    @endif
-  </div>
+{{-- Tanda Tangan: KIRI = Mengetahui, Komandan Skadron Pendidikan — KANAN = Kepala Sekolah --}}
+@php
+  /* Revisi 8 September 2026:
+     - Sumber jabatan = kolom `jabatan` penandatangan (bukan label jenis
+       "Danskadik"/"Kepala Sekolah"), selaras dengan laporan NPA, NPK & NPS. */
+  $sk = $angkatan->skadik;
+  $lemdikNama = trim($sk->lemdik->nama ?? '');
+  $jabatanDanskadik = 'Komandan ' . ($lemdikNama !== '' ? $lemdikNama : 'Skadron Pendidikan');
 
-  {{-- TENGAH --}}
-  <div></div>
+  $ambil = fn($val, $fallback) => (trim((string) $val) !== '') ? $val : $fallback;
+  $jabatanKiri   = $ambil($ttdKiri?->jabatan, $jabatanDanskadik);
+  $namaKiri      = $ambil($ttdKiri?->nama, $sk->kepala_sekolah ?? '................................');
+  $pangkatKiri   = $ambil($ttdKiri?->pangkat, $sk->pangkat_kepala ?? '');
+  $nrpKiri       = $ambil($ttdKiri?->nrp, $sk->nrp_kepala ?? '');
 
-  {{-- KANAN: Kepala Sekolah --}}
-  <div class="ttd-box">
-    <div class="tempat">{{ $angkatan->skadik->lemdik->kota ?? '' }}, {{ date('d F Y') }}</div>
-    <div class="jabatan">Kepala Sekolah</div>
-    @if($ttdKanan)
-      <div class="nama">{{ $ttdKanan->nama }}</div>
-      @if($ttdKanan->pangkat)<div class="pangkat">{{ $ttdKanan->pangkat }}</div>@endif
-      @if($ttdKanan->nrp)<div class="nrp">NRP. {{ $ttdKanan->nrp }}</div>@endif
-    @else
-      <div class="nama">{{ $angkatan->skadik->kepala_sekolah ?? '................................' }}</div>
-      <div class="pangkat">{{ $angkatan->skadik->pangkat_kepala ?? '' }}</div>
-      @if($angkatan->skadik->nrp_kepala)<div class="nrp">NRP. {{ $angkatan->skadik->nrp_kepala }}</div>@endif
-    @endif
-  </div>
-</div>
+  $jabatanKanan  = $ambil($ttdKanan?->jabatan, 'Kepala Sekolah');
+  $namaKanan     = $ambil($ttdKanan?->nama, $sk->kepala_sekolah ?? '................................');
+  $pangkatKanan  = $ambil($ttdKanan?->pangkat, $sk->pangkat_kepala ?? '');
+  $nrpKanan      = $ambil($ttdKanan?->nrp, $sk->nrp_kepala ?? '');
+
+  $gabungPangkatNrp = fn($p, $n) => trim($p . (($p && $n) ? ' - ' : '') . ($n ? 'NRP. ' . $n : ''));
+  $pangkatNrpKiri  = $gabungPangkatNrp($pangkatKiri, $nrpKiri);
+  $pangkatNrpKanan = $gabungPangkatNrp($pangkatKanan, $nrpKanan);
+@endphp
+<table class="ttd-table">
+  <tr>
+    <td class="tepi">Mengetahui,</td>
+    <td class="spasi"></td>
+    <td class="tepi">{{ $sk->lemdik->kota ?? '' }}, {{ date('d F Y') }}</td>
+  </tr>
+  <tr>
+    <td class="tepi">{{ $jabatanKiri }}</td>
+    <td class="spasi"></td>
+    <td class="tepi">{{ $jabatanKanan }}</td>
+  </tr>
+  <tr class="ruang"><td colspan="3"></td></tr>
+  <tr>
+    <td class="tepi nama">{{ $namaKiri }}</td>
+    <td class="spasi"></td>
+    <td class="tepi nama">{{ $namaKanan }}</td>
+  </tr>
+  <tr>
+    <td class="tepi pangkat-nrp">{{ $pangkatNrpKiri }}</td>
+    <td class="spasi"></td>
+    <td class="tepi pangkat-nrp">{{ $pangkatNrpKanan }}</td>
+  </tr>
+</table>
 
 <div class="footer-info">
   <span>Dicetak dari SIPP</span>
