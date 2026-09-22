@@ -1,7 +1,8 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Angkatan, PesertaDidik, NilaiSamapta, PeriodeNps, Skadik};
+use App\Models\{Angkatan, PesertaDidik, NilaiSamapta, PeriodeNps, Skadik, Penandatangan};
+use App\Services\ExportFile;
 use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -101,6 +102,7 @@ class NilaiSamaptaController extends Controller
         $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
 
         $spreadsheet = new Spreadsheet();
+        ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
         $sh = $spreadsheet->getActiveSheet();
         $sh->setTitle('Template NPS');
 
@@ -118,8 +120,8 @@ class NilaiSamaptaController extends Controller
             $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
             $sh->setCellValue("{$col}1", $h);
             $sh->getStyle("{$col}1")->applyFromArray([
-                'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EA580C']],
+                'font'      => ['bold' => true, 'color' => ['rgb' => '000000'], 'size' => 11],
+                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'wrapText' => true],
             ]);
         }
@@ -135,7 +137,7 @@ class NilaiSamaptaController extends Controller
 
         foreach ($pesertaList as $i => $p) {
             $r = $i + 2;
-            $sh->setCellValue("A{$r}", $p->nrp);
+            ExportFile::setText($sh, "A{$r}", $p->nrp);
             $sh->setCellValue("B{$r}", $p->nama);
             $sh->setCellValue("C{$r}", $p->pangkat);
         }
@@ -148,7 +150,7 @@ class NilaiSamaptaController extends Controller
         $sh->getStyle("A{$noteRow}:A" . ($noteRow + 2))->getFont()->setItalic(true)->setSize(10);
 
         $writer = new Xlsx($spreadsheet);
-        $filename = "Template_NPS_{$angkatan?->skadik?->kode}_Angk{$angkatan?->nomor_angkatan}_{$putaranLabel}.xlsx";
+        $filename = ExportFile::name($angkatan, 'Template NPS', $putaranLabel);
         return response()->streamDownload(
             fn() => $writer->save('php://output'),
             $filename,
@@ -177,7 +179,8 @@ class NilaiSamaptaController extends Controller
         $errors   = [];
 
         for ($row = 2; $row <= $highestRow; $row++) {
-            $nrp  = trim((string) $sheet->getCellByColumnAndRow(1, $row)->getValue());
+            // NRP dinormalisasi: angka panjang / notasi ilmiah → digit penuh
+            $nrp  = ExportFile::digitText($sheet->getCellByColumnAndRow(1, $row)->getValue());
             $nama = trim((string) $sheet->getCellByColumnAndRow(2, $row)->getValue());
 
             if ($nrp === '' && $nama === '') continue;
@@ -357,28 +360,29 @@ class NilaiSamaptaController extends Controller
             ->get();
 
         $spreadsheet = new Spreadsheet();
+        ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
         $sh = $spreadsheet->getActiveSheet()->setTitle('NPS');
 
         $sh->mergeCells('A1:J1');
         $sh->setCellValue('A1', 'NILAI PRESTASI SAMAPTA (NPS) — ' . $angkatan?->skadik?->nama . ' Angkatan ' . $angkatan?->nomor_angkatan . ' — ' . $putaranLabel);
         $sh->getStyle('A1')->applyFromArray([
-            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EA580C']],
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '000000']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
         ]);
 
-        $headers = ['Rank', 'NRP', 'Pangkat', 'Nama', 'Jarak Lari (m)', 'Nilai Lari (Garjas A)', 'Garjas B', 'Nilai Akhir', 'Nilai Konversi', 'Predikat'];
+        $headers = ['Rank', 'Nama', 'Pangkat', 'NRP', 'Jarak Lari (m)', 'Nilai Lari (Garjas A)', 'Garjas B', 'Nilai Akhir', 'Nilai Konversi (NPS)', 'Kategori'];
         foreach ($headers as $i => $h) {
             $c = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
             $sh->setCellValue("{$c}3", $h);
         }
         $sh->getStyle('A3:J3')->applyFromArray([
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F97316']],
+            'font' => ['bold' => true, 'color' => ['rgb' => '000000']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'wrapText' => true],
         ]);
 
-        $widths = [6, 16, 14, 32, 14, 18, 12, 12, 14, 14];
+        $widths = [6, 32, 14, 16, 14, 18, 12, 12, 14, 14];
         foreach ($widths as $i => $w) {
             $sh->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1))->setWidth($w);
         }
@@ -386,9 +390,9 @@ class NilaiSamaptaController extends Controller
         foreach ($data as $i => $d) {
             $r = $i + 4;
             $sh->setCellValue("A{$r}", $i + 1);
-            $sh->setCellValue("B{$r}", $d->peserta->nrp);
+            $sh->setCellValue("B{$r}", $d->peserta->nama);
             $sh->setCellValue("C{$r}", $d->peserta->pangkat);
-            $sh->setCellValue("D{$r}", $d->peserta->nama);
+            ExportFile::setText($sh, "D{$r}", $d->peserta->nrp);
             $sh->setCellValue("E{$r}", $d->jarak_lari);
             $sh->setCellValue("F{$r}", $d->nilai_lari);
             $sh->setCellValue("G{$r}", $d->garjas_b_nilai);
@@ -398,7 +402,7 @@ class NilaiSamaptaController extends Controller
         }
 
         $writer = new Xlsx($spreadsheet);
-        $filename = "NPS_{$angkatan?->skadik?->kode}_Angk{$angkatan?->nomor_angkatan}_{$putaranLabel}.xlsx";
+        $filename = ExportFile::name($angkatan, 'NPS', $putaranLabel);
         return response()->streamDownload(fn() => $writer->save('php://output'), $filename);
     }
 
@@ -419,6 +423,13 @@ class NilaiSamaptaController extends Controller
             ->orderByDesc('nilai_akhir')
             ->get();
 
-        return view('nilai-samapta.cetak', compact('angkatan', 'data', 'putaranLabel'));
+        // Revisi 22 Sept 2026 — Danskadik berlaku di SEMUA report (bukan NPP saja):
+        // cetak NPS kini mengambil penandatangan dari master Penandatangan
+        // (kiri = jenis 'danskadik' / Mengetahui, kanan = jenis 'samapta'),
+        // dengan fallback ke data Kepala Sekolah di view bila belum diatur.
+        $ttdKiri  = Penandatangan::getPenandatangan('danskadik', $angkatan?->skadik_id);
+        $ttdKanan = Penandatangan::getPenandatangan('samapta', $angkatan?->skadik_id);
+
+        return view('nilai-samapta.cetak', compact('angkatan', 'data', 'putaranLabel', 'ttdKiri', 'ttdKanan'));
     }
 }

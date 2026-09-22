@@ -6,7 +6,7 @@
 <style>
   @page { size: landscape; margin: 10mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Times New Roman', serif; font-size: 10pt; color: #000; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; }
   .header { text-align: center; margin-bottom: 12px; border-bottom: 3px double #000; padding-bottom: 8px; }
   .header h1 { font-size: 13pt; font-weight: bold; letter-spacing: 2px; }
   .header h2 { font-size: 11pt; font-weight: bold; margin-top: 2px; }
@@ -16,7 +16,7 @@
 
   table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
   th, td { border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt; vertical-align: middle; }
-  th { background: #e0e0e0; font-weight: bold; }
+  th { background: #ffffff; font-weight: bold; }
   .text-left { text-align: left; }
   .fw-bold { font-weight: bold; }
   .nps-val { font-weight: bold; font-size: 10pt; }
@@ -48,7 +48,7 @@
 <body>
 
 <div class="no-print" style="text-align:center;padding:10px;margin-bottom:10px;background:#f0f0f0">
-  <button onclick="window.print()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#4f46e5;color:#fff;border:none;border-radius:6px">🖨️ Cetak Halaman</button>
+  <button onclick="window.print()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#555;color:#fff;border:none;border-radius:6px">🖨️ Cetak Halaman</button>
   <button onclick="window.close()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#888;color:#fff;border:none;border-radius:6px;margin-left:8px">Tutup</button>
 </div>
 
@@ -72,15 +72,15 @@
   <thead>
     <tr>
       <th rowspan="2">No</th>
-      <th rowspan="2">NRP</th>
-      <th rowspan="2">Pangkat</th>
       <th rowspan="2">Nama</th>
+      <th rowspan="2">Pangkat</th>
+      <th rowspan="2">NRP</th>
       <th rowspan="2">Jarak Lari (m)</th>
       <th rowspan="2">Nilai Lari (Garjas A)</th>
       <th rowspan="2">Garjas B</th>
-      <th rowspan="2" style="background:#7c3aed;color:#fff">Nilai Akhir (NPS)</th>
-      <th rowspan="2">Nilai Konversi</th>
-      <th rowspan="2">Predikat</th>
+      <th rowspan="2">Nilai Akhir</th>
+      <th rowspan="2" style="background:#ffffff;color:#000">Nilai Konversi (NPS)</th>
+      <th rowspan="2">Kategori</th>
     </tr>
   </thead>
   <tbody>
@@ -91,15 +91,17 @@
     @endphp
     @foreach($data as $d)
       @php
-        $nps = $d->nilai_akhir ?? 0;
+        // Revisi 17 Sept 2026: rata-rata angkatan dihitung dari NILAI KONVERSI (NPS),
+        // bukan dari nilai_akhir.
+        $nps = $d->nilai_konversi ?? 0;
         if ($nps > 0) { $totalNPS += $nps; $countNPS++; }
         $predikat = $d->predikat;
       @endphp
       <tr>
         <td>{{ $no++ }}</td>
-        <td style="font-size:8pt">{{ $d->peserta->nrp }}</td>
-        <td>{{ $d->peserta->pangkat }}</td>
         <td class="text-left" style="font-weight:500">{{ $d->peserta->nama }}</td>
+        <td>{{ $d->peserta->pangkat }}</td>
+        <td style="font-size:8pt">{{ $d->peserta->nrp }}</td>
         <td>{{ $d->jarak_lari ?? '-' }}</td>
         <td style="font-weight:600">{{ $d->nilai_lari ?? '-' }}</td>
         <td style="font-weight:600">{{ $d->garjas_b_nilai ?? '-' }}</td>
@@ -111,33 +113,43 @@
     @endforeach
 
     @if($countNPS > 0)
-    <tr style="background:#f0f0f0;font-weight:bold">
+    <tr style="background:#ffffff;font-weight:bold">
       <td colspan="7" style="text-align:right">Rata-rata Angkatan</td>
+      <td></td>
       <td>{{ number_format($totalNPS / $countNPS, 2) }}</td>
-      <td colspan="2"></td>
+      <td></td>
     </tr>
     @endif
   </tbody>
 </table>
 
 @php
-  // Revisi 2 September 2026 — kolom tanda tangan Danskadik (tetap di KIRI/awal)
-  // menjadi dua baris: "Mengetahui, Komandan Skadron Pendidikan 303".
-  // Nama skadron dinamis dari Lemdik sekolah.
-  $lemdikNama = trim($angkatan->skadik->lemdik->nama ?? '');
+  /* Revisi 2 September 2026 — kolom tanda tangan Danskadik (tetap di KIRI/awal)
+     menjadi dua baris: "Mengetahui, Komandan Skadron Pendidikan 303".
+     Nama skadron dinamis dari Lemdik sekolah.
+
+     Revisi 22 September 2026 — Danskadik berlaku di SEMUA report (bukan NPP
+     saja): cetak NPS kini mengambil penandatangan dari master Penandatangan
+     (kiri = jenis 'danskadik', kanan = jenis 'samapta') dgn fallback ke data
+     Kepala Sekolah di master Skadik bila belum diatur. */
+  $sk = $angkatan->skadik;
+  $lemdikNama = trim($sk->lemdik->nama ?? '');
   $jabatanDanskadik = 'Komandan ' . ($lemdikNama !== '' ? $lemdikNama : 'Skadron Pendidikan');
 
-  // Baris tunggal pangkat + NRP sejajar kanan-kiri, mis:
-  //   "Letkol Pnb - NRP. 489201"
-  $sk = $angkatan->skadik;
-  $pangkatNrp = trim(($sk->pangkat_kepala ? $sk->pangkat_kepala : '') .
-                    (($sk->pangkat_kepala && $sk->nrp_kepala) ? ' - ' : '') .
-                    ($sk->nrp_kepala ? 'NRP. ' . $sk->nrp_kepala : ''));
+  $ambil = fn($val, $fallback) => (trim((string) $val) !== '') ? $val : $fallback;
+  $jabatanKiri   = $ambil($ttdKiri?->jabatan, $jabatanDanskadik);
+  $namaKiri      = $ambil($ttdKiri?->nama, $sk->kepala_sekolah ?? '................................');
+  $pangkatKiri   = $ambil($ttdKiri?->pangkat, $sk->pangkat_kepala ?? '');
+  $nrpKiri       = $ambil($ttdKiri?->nrp, $sk->nrp_kepala ?? '');
 
-  // Revisi 8 September 2026 — nilai per kolom tanda tangan (kiri/kanan)
-  $namaTtd = $sk->kepala_sekolah ?? '................................';
-  $jabatanKiri  = $jabatanDanskadik;
-  $jabatanKanan = 'Kepala Sekolah';
+  $jabatanKanan  = $ambil($ttdKanan?->jabatan, 'Kepala Sekolah');
+  $namaKanan     = $ambil($ttdKanan?->nama, $sk->kepala_sekolah ?? '................................');
+  $pangkatKanan  = $ambil($ttdKanan?->pangkat, $sk->pangkat_kepala ?? '');
+  $nrpKanan      = $ambil($ttdKanan?->nrp, $sk->nrp_kepala ?? '');
+
+  $gabungPangkatNrp = fn($p, $n) => trim($p . (($p && $n) ? ' - ' : '') . ($n ? 'NRP. ' . $n : ''));
+  $pangkatNrpKiri  = $gabungPangkatNrp($pangkatKiri, $nrpKiri);
+  $pangkatNrpKanan = $gabungPangkatNrp($pangkatKanan, $nrpKanan);
 @endphp
 <table class="ttd-table">
   <tr>
@@ -152,14 +164,14 @@
   </tr>
   <tr class="ruang"><td colspan="3"></td></tr>
   <tr>
-    <td class="tepi nama">{{ $namaTtd }}</td>
+    <td class="tepi nama">{{ $namaKiri }}</td>
     <td class="spasi"></td>
-    <td class="tepi nama">{{ $namaTtd }}</td>
+    <td class="tepi nama">{{ $namaKanan }}</td>
   </tr>
   <tr>
-    <td class="tepi pangkat-nrp">{{ $pangkatNrp }}</td>
+    <td class="tepi pangkat-nrp">{{ $pangkatNrpKiri }}</td>
     <td class="spasi"></td>
-    <td class="tepi pangkat-nrp">{{ $pangkatNrp }}</td>
+    <td class="tepi pangkat-nrp">{{ $pangkatNrpKanan }}</td>
   </tr>
 </table>
 

@@ -2,17 +2,31 @@
 namespace App\Exports;
 
 use App\Models\{PesertaDidik, PeriodeNilai};
+use App\Services\ExportFile;
 use Maatwebsite\Excel\Concerns\{
     FromCollection, WithHeadings, WithStyles,
-    WithColumnWidths, WithTitle, WithMapping, ShouldAutoSize
+    WithColumnWidths, WithTitle, WithMapping, ShouldAutoSize,
+    WithCustomValueBinder
 };
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\Cell\StringValueBinder;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\{Fill, Border, Alignment};
 
 class NilaiExport implements
     FromCollection, WithHeadings, WithStyles,
-    WithColumnWidths, WithTitle, WithMapping, ShouldAutoSize
+    WithColumnWidths, WithTitle, WithMapping, ShouldAutoSize,
+    WithCustomValueBinder
 {
+    /** Binder teks: NRP 16 digit & Nosis "001" tampil penuh (bukan angka/ilmiah) */
+    private static ?StringValueBinder $textBinder = null;
+
+    public function bindValue(Cell $cell, $value)
+    {
+        self::$textBinder ??= (new StringValueBinder())->setNumericConversion(false); // false = angka asli tetap numerik, STRING (NRP/Nosis) tetap teks
+
+        return self::$textBinder->bindValue($cell, $value);
+    }
     protected $angkatanId;
     protected $periodeId;
     protected $periode;
@@ -36,10 +50,10 @@ class NilaiExport implements
     {
         $n = $peserta->nilai->first();
         return [
-            $peserta->nosis,
-            $peserta->nrp,
-            $peserta->pangkat,
             $peserta->nama,
+            $peserta->pangkat,
+            $peserta->nrp,
+            $peserta->nosis,
             $n?->akademik ?? '',
             $n?->fisik ?? '',
             $n?->sikap ?? '',
@@ -51,10 +65,10 @@ class NilaiExport implements
     public function headings(): array
     {
         return [
-            'Nosis',
-            'NRP',
-            'Pangkat',
             'Nama',
+            'Pangkat',
+            'NRP',
+            'Nosis',
             'Akademik',
             'Fisik',
             'Sikap',
@@ -66,10 +80,10 @@ class NilaiExport implements
     public function columnWidths(): array
     {
         return [
-            'A' => 15,
+            'A' => 30,
             'B' => 15,
             'C' => 15,
-            'D' => 30,
+            'D' => 15,
             'E' => 12,
             'F' => 12,
             'G' => 12,
@@ -85,34 +99,30 @@ class NilaiExport implements
 
     public function styles(Worksheet $sheet)
     {
+        // Font default ARIAL untuk seluruh sheet (revisi 21 Sept 2026)
+        ExportFile::plain($sheet->getParent());
+
         $lastRow = $sheet->getHighestRow();
 
         // Header style
         $sheet->getStyle('A1:I1')->applyFromArray([
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'font' => ['bold' => true, 'color' => ['rgb' => '000000'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ]);
 
         // Data rows
         if ($lastRow > 1) {
             $sheet->getStyle("A2:I{$lastRow}")->applyFromArray([
-                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                 'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
             ]);
 
-            // Zebra stripe
-            for ($row = 2; $row <= $lastRow; $row++) {
-                if ($row % 2 === 0) {
-                    $sheet->getStyle("A{$row}:I{$row}")->applyFromArray([
-                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F9FAFB']],
-                    ]);
-                }
-            }
+            // Tabel polos — tanpa zebra (revisi 21 Sept 2026)
 
-            // Center numerik
-            $sheet->getStyle("A2:C{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            // Center kolom identitas & angka
+            $sheet->getStyle("B2:D{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("E2:I{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
 

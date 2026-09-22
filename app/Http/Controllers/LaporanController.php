@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Angkatan, PesertaDidik, KompilasiNilai, NilaiAkademik, NilaiKepribadian, NilaiSamapta, PeriodeNilai, Skadik, Penandatangan};
 use App\Services\NppCalculator;
+use App\Services\ExportFile;
 use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -129,13 +130,14 @@ class LaporanController extends Controller
         $data = NppCalculator::forAngkatan($angkatanId);
 
         $spreadsheet = new Spreadsheet();
+        ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
         $sh = $spreadsheet->getActiveSheet();
         $sh->setTitle('Rekap NPP');
 
         $sh->mergeCells('A1:K1');
         $sh->setCellValue('A1', 'NILAI PRESTASI PENDIDIKAN (NPP)');
         $sh->getStyle('A1')->applyFromArray([
-            'font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => '1A1A2E']],
+            'font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => '000000']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
         ]);
 
@@ -148,14 +150,14 @@ class LaporanController extends Controller
         $sh->setCellValue('A3', "SEKOLAH KEJURUAN LANJUTAN {$jurusan} TA. {$angkatan?->tahun_masuk}");
         $sh->getStyle('A3')->applyFromArray(['font' => ['bold' => true, 'size' => 11], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]]);
 
-        $headers = ['Rank', 'NRP', 'Pangkat', 'Nama', 'NPA', 'N. Kepribadian', 'NPS', 'NPP', 'Predikat', 'Predikat Angka', 'Keterangan'];
+        $headers = ['Rank', 'Nama', 'Pangkat', 'NRP', 'NPA', 'N. Kepribadian', 'NPS', 'NPP', 'Predikat', 'Predikat Angka', 'Keterangan'];
         foreach ($headers as $col => $h) {
             $c = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1);
             $sh->setCellValue($c . '5', $h);
         }
         $sh->getStyle('A5:K5')->applyFromArray([
-            'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => '000000']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'wrapText' => true],
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
         ]);
@@ -163,9 +165,9 @@ class LaporanController extends Controller
         $row = 6;
         foreach ($data as $d) {
             $sh->setCellValue("A{$row}", $d->rank);
-            $sh->setCellValue("B{$row}", $d->peserta->nrp);
+            $sh->setCellValue("B{$row}", $d->peserta->nama);
             $sh->setCellValue("C{$row}", $d->peserta->pangkat);
-            $sh->setCellValue("D{$row}", $d->peserta->nama);
+            ExportFile::setText($sh, "D{$row}", $d->peserta->nrp);
             $sh->setCellValue("E{$row}", $d->nilai_akademik);
             $sh->setCellValue("F{$row}", $d->nilai_kepribadian);
             $sh->setCellValue("G{$row}", $d->nilai_samapta);
@@ -177,7 +179,7 @@ class LaporanController extends Controller
             for ($c = 1; $c <= 11; $c++) {
                 $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
                 $sh->getStyle("{$col}{$row}")->applyFromArray([
-                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                     'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
                 ]);
             }
@@ -187,9 +189,9 @@ class LaporanController extends Controller
         }
 
         $sh->getColumnDimension('A')->setWidth(6);
-        $sh->getColumnDimension('B')->setWidth(14);
+        $sh->getColumnDimension('B')->setWidth(32);
         $sh->getColumnDimension('C')->setWidth(12);
-        $sh->getColumnDimension('D')->setWidth(32);
+        $sh->getColumnDimension('D')->setWidth(14);
         $sh->getColumnDimension('E')->setWidth(12);
         $sh->getColumnDimension('F')->setWidth(16);
         $sh->getColumnDimension('G')->setWidth(10);
@@ -198,7 +200,7 @@ class LaporanController extends Controller
         $sh->getColumnDimension('J')->setWidth(12);
         $sh->getColumnDimension('K')->setWidth(14);
 
-        $filename = "NPP_Rekap_{$angkatan?->skadik?->nama}_Angkatan_{$angkatan?->nomor_angkatan}.xlsx";
+        $filename = ExportFile::name($angkatan, 'Rekap NPP');
         $writer = new Xlsx($spreadsheet);
         return response()->streamDownload(function() use ($writer) { $writer->save('php://output'); }, $filename);
     }

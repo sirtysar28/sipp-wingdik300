@@ -117,9 +117,9 @@
         <thead>
           <tr>
             <th style="text-align:center;width:50px">Rank</th>
-            <th>NRP</th>
-            <th>Pangkat</th>
             <th>Nama</th>
+            <th>Pangkat</th>
+            <th>NRP</th>
             <th style="text-align:right">NPP</th>
             <th style="text-align:center">Predikat</th>
             <th style="text-align:center">Keterangan</th>
@@ -136,9 +136,9 @@
               <td style="text-align:center;font-weight:600">
                 @if($d->rank === 1) 🥇 @elseif($d->rank === 2) 🥈 @elseif($d->rank === 3) 🥉 @else {{ $d->rank }} @endif
               </td>
-              <td>{{ $d->peserta->nrp }}</td>
-              <td>{{ $d->peserta->pangkat }}</td>
               <td><strong>{{ $d->peserta->nama }}</strong></td>
+              <td>{{ $d->peserta->pangkat }}</td>
+              <td>{{ $d->peserta->nrp }}</td>
               <td style="text-align:right">
                 <span style="font-weight:700;font-size:16px;color:#4f46e5">{{ $d->nilai_akhir }}</span>
               </td>

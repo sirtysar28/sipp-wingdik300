@@ -91,6 +91,7 @@ Route::middleware(['auth', 'role:admin_kepribadian,admin'])->group(function () {
 // ══════════════════════════════════════════════════════════════
 Route::middleware(['auth', 'role:admin_akademik,super_admin,admin'])->prefix('nilai-akademik')->name('nilai-akademik.')->group(function () {
     Route::get('/',             [NilaiAkademikController::class, 'index'])->name('index');
+    Route::get('/template',     [NilaiAkademikController::class, 'downloadTemplate'])->name('template');
     Route::get('/import',       [NilaiAkademikController::class, 'importForm'])->name('import.form');
     Route::post('/import',      [NilaiAkademikController::class, 'import'])->name('import');
     Route::get('/manual',       [NilaiAkademikController::class, 'manualForm'])->name('manual.form');
@@ -137,7 +138,10 @@ Route::middleware(['auth', 'role:super_admin,admin'])->prefix('kompilasi')->name
 // ══════════════════════════════════════════════════════════════
 Route::middleware(['auth', 'role:super_admin,admin,admin_akademik'])->group(function () {
     Route::get('/report/npp',      [ReportController::class, 'reportNPP'])->name('report.npp');
-    Route::get('/report/npp/ekspor',[KompilasiNilaiController::class, 'ekspor'])->name('report.npp.ekspor');
+    // Revisi 18 Sept 2026: ekspor NPP kini memakai ReportController::eksporNPP
+    // agar isi Excel SAMA dengan "Cetak NPP Angkatan" (data live NppCalculator),
+    // bukan record kompilasi lama (KompilasiNilaiController::ekspor).
+    Route::get('/report/npp/ekspor',[ReportController::class, 'eksporNPP'])->name('report.npp.ekspor');
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -281,6 +285,7 @@ Route::middleware(['auth', 'role:super_admin'])->group(function () {
 Route::middleware(['auth', 'role:super_admin,admin,admin_akademik,admin_kepribadian,admin_samapta'])->group(function () {
     Route::get('/penandatangan',          [PenandatanganController::class, 'index'])->name('penandatangan.index');
     Route::post('/penandatangan',         [PenandatanganController::class, 'store'])->name('penandatangan.store');
+    Route::post('/penandatangan/{id}/duplicate', [PenandatanganController::class, 'duplicate'])->name('penandatangan.duplicate');
     Route::put('/penandatangan/{id}',     [PenandatanganController::class, 'update'])->name('penandatangan.update');
     Route::delete('/penandatangan/{id}',  [PenandatanganController::class, 'destroy'])->name('penandatangan.destroy');
 });

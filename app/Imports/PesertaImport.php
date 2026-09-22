@@ -79,8 +79,9 @@ class PesertaImport
 
             $nama    = trim($row[$colNama] ?? '');
             $pangkat = trim($row[$colPangkat] ?? '');
-            $nrp     = trim($row[$colNrp] ?? '');
-            $nosis   = trim($row[$colNosis] ?? '');
+            // NRP/Nosis dinormalisasi: angka panjang & notasi ilmiah → digit penuh
+            $nrp     = \App\Services\ExportFile::digitText($row[$colNrp] ?? '');
+            $nosis   = \App\Services\ExportFile::digitText($row[$colNosis] ?? '');
 
             // Skip baris kosong
             if (empty($nama) && empty($nrp) && empty($nosis)) continue;

@@ -6,7 +6,7 @@
 <style>
   @page { size: portrait; margin: 20mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Times New Roman', serif; font-size: 11pt; color: #000; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #000; }
   .header { text-align: center; margin-bottom: 16px; border-bottom: 3px double #000; padding-bottom: 10px; }
   .header h1 { font-size: 14pt; font-weight: bold; letter-spacing: 2px; }
   .header h2 { font-size: 12pt; font-weight: bold; margin-top: 2px; }
@@ -20,7 +20,7 @@
 
   table { width: 100%; border-collapse: collapse; }
   th, td { border: 1px solid #000; padding: 6px 10px; text-align: center; font-size: 10pt; vertical-align: middle; }
-  th { background: #e0e0e0; font-weight: bold; }
+  th { background: #ffffff; font-weight: bold; }
   .text-left { text-align: left; }
   .text-right { text-align: right; }
 
@@ -28,7 +28,7 @@
 
   .result-box { border: 2px solid #000; padding: 12px; text-align: center; margin: 16px 0; }
   .result-box .label { font-size: 11pt; font-weight: bold; }
-  .result-box .value { font-size: 24pt; font-weight: bold; color: #1a1a2e; margin: 4px 0; }
+  .result-box .value { font-size: 24pt; font-weight: bold; color: #000; margin: 4px 0; }
   .result-box .predikat { font-size: 14pt; font-weight: bold; }
 
   /* ── Blok Tanda Tangan (Revisi 8 September 2026) ──
@@ -52,8 +52,8 @@
 </head>
 <body>
 
-<div class="no-print" style="text-align:center;padding:10px;margin-bottom:10px;background:#f0f0f0">
-  <button onclick="window.print()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#4f46e5;color:#fff;border:none;border-radius:6px">🖨️ Cetak Halaman</button>
+<div class="no-print" style="text-align:center;padding:10px;margin-bottom:10px;background:#ffffff">
+  <button onclick="window.print()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#555;color:#fff;border:none;border-radius:6px">🖨️ Cetak Halaman</button>
   <button onclick="window.close()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#888;color:#fff;border:none;border-radius:6px;margin-left:8px">Tutup</button>
 </div>
 
@@ -152,7 +152,7 @@
     @else
       <tr><td colspan="7">Belum ada data nilai akademik</td></tr>
     @endif
-    <tr style="background:#f0f0f0;font-weight:bold">
+    <tr style="background:#ffffff;font-weight:bold">
       <td colspan="4" class="text-left">JUMLAH</td>
       <td>{{ $totalHN }}</td>
       <td>{{ $akademik ? $akademik->jumlah_nilai : '-' }}</td>
@@ -190,7 +190,7 @@
         <td>{{ round($nk->nilai_akhir, 2) }}</td>
       </tr>
       @endforeach
-      <tr style="background:#f0f0f0;font-weight:bold">
+      <tr style="background:#ffffff;font-weight:bold">
         <td colspan="2" class="text-left">Rata-rata Kepribadian</td>
         <td>{{ round($kepribadianAvg, 2) }}</td>
       </tr>
@@ -239,7 +239,7 @@
 @php
   $npaCetak = $akademik ? round($akademik->npa, 2) : round($kompilasi?->nilai_akademik ?? 0, 2);
   $npkCetak = round($kepribadianAvg, 2);
-  $npsCetak = $samapta ? round($samapta->nilai_akhir, 2) : round($kompilasi?->nilai_samapta ?? 0, 2);
+  $npsCetak = $samapta ? round($samapta->nilai_konversi ?? $samapta->nilai_akhir ?? 0, 2) : round($kompilasi?->nilai_samapta ?? 0, 2);
   $bA = $kompilasi?->bobot_akademik ?? 70;
   $bK = $kompilasi?->bobot_kepribadian ?? 20;
   $bS = $kompilasi?->bobot_samapta ?? 10;
@@ -274,7 +274,7 @@
       <td>{{ $bS }}%</td>
       <td>{{ round($npsCetak * $bS / 100, 2) }}</td>
     </tr>
-    <tr style="background:#e0e0e0;font-weight:bold">
+    <tr style="background:#ffffff;font-weight:bold">
       <td class="text-left">TOTAL (NPP)</td>
       <td colspan="3" style="font-size:14pt;font-weight:bold">{{ $nppCetak }}</td>
     </tr>

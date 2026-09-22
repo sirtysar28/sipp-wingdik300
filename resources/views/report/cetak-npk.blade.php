@@ -6,7 +6,7 @@
 <style>
   @page { size: landscape; margin: 15mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Times New Roman', serif; font-size: 11pt; color: #000; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #000; }
   .header { text-align: center; margin-bottom: 16px; border-bottom: 3px double #000; padding-bottom: 10px; }
   .header h1 { font-size: 14pt; font-weight: bold; letter-spacing: 2px; }
   .header h2 { font-size: 12pt; font-weight: bold; margin-top: 2px; }
@@ -16,7 +16,7 @@
 
   table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
   th, td { border: 1px solid #000; padding: 5px 8px; text-align: center; font-size: 9pt; vertical-align: middle; }
-  th { background: #e0e0e0; font-weight: bold; }
+  th { background: #ffffff; font-weight: bold; }
   .text-left { text-align: left; }
   .bold { font-weight: bold; }
 
@@ -43,7 +43,7 @@
 <body>
 
 <div class="no-print" style="text-align:center;padding:10px;margin-bottom:10px;background:#f0f0f0">
-  <button onclick="window.print()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#2563eb;color:#fff;border:none;border-radius:6px">🖨️ Cetak Halaman</button>
+  <button onclick="window.print()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#555;color:#fff;border:none;border-radius:6px">🖨️ Cetak Halaman</button>
   <button onclick="window.close()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#888;color:#fff;border:none;border-radius:6px;margin-left:8px">Tutup</button>
 </div>
 
@@ -92,11 +92,12 @@
     <tr>
       <th style="width:30px">No</th>
       <th class="text-left" style="width:140px">Nama</th>
+      <th style="width:50px">Pangkat</th>
       <th style="width:80px">NRP</th>
       @foreach($periodes as $per)
       <th>{{ strtoupper($per->label) }}</th>
       @endforeach
-      <th style="background:#d0d0ff">Rata-rata</th>
+      <th style="background:#ffffff">Rata-rata</th>
       <th style="width:30px">Rank</th>
     </tr>
   </thead>
@@ -105,11 +106,12 @@
     <tr>
       <td>{{ $i + 1 }}</td>
       <td class="text-left">{{ $s['peserta']->nama }}</td>
+      <td>{{ $s['peserta']->pangkat }}</td>
       <td>{{ $s['peserta']->nrp }}</td>
       @foreach($s['vals'] as $v)
       <td>{{ $v ?? '-' }}</td>
       @endforeach
-      <td style="background:#f0f0ff" class="bold">{{ $s['rata'] ?? '-' }}</td>
+      <td style="background:#ffffff" class="bold">{{ $s['rata'] ?? '-' }}</td>
       <td class="bold">{{ $i + 1 }}</td>
     </tr>
     @endforeach
@@ -131,7 +133,7 @@
         @foreach($aspekList as $asp)
         <th style="font-size:7pt;writing-mode:vertical-rl;rotate:180deg;height:90px">{{ strtoupper($asp->nama) }}<br><span style="font-weight:normal;font-size:6pt">({{ $per->label }})</span></th>
         @endforeach
-        <th style="background:#e8e8f8;font-size:7pt">{{ strtoupper($per->label) }}<br>AKHIR</th>
+        <th style="background:#ffffff;font-size:7pt">{{ strtoupper($per->label) }}<br>AKHIR</th>
       @endforeach
     </tr>
   </thead>
@@ -147,9 +149,9 @@
         @endphp
         @foreach($aspekList as $asp)
           @php $kriteria = $det->get($asp->id)?->kriteria ?? ''; @endphp
-          <td style="background:{{ match($kriteria){'BS'=>'#d1fae5','B'=>'#dbeafe','C'=>'#f9fafb','K'=>'#fef3c7','KS'=>'#fee2e2',default=>'#fff'} }};font-size:8pt">{{ $kriteria ?: '-' }}</td>
+          <td style="background:#ffffff;font-size:8pt">{{ $kriteria ?: '-' }}</td>
         @endforeach
-        <td style="background:#f0f0ff;font-weight:bold">{{ $nk ? round($nk->nilai_akhir,2) : '-' }}</td>
+        <td style="background:#ffffff;font-weight:bold">{{ $nk ? round($nk->nilai_akhir,2) : '-' }}</td>
       @endforeach
     </tr>
     @endforeach

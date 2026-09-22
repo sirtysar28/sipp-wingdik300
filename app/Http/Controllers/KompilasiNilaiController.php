@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{Angkatan, PesertaDidik, NilaiAkademik, NilaiSamapta, NilaiKepribadian, KompilasiNilai, PeriodeNilai, Skadik};
+use App\Services\ExportFile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -84,10 +85,12 @@ class KompilasiNilaiController extends Controller
                     ->avg('nilai_akhir') ?? 0;
                 $nilaiKepribadian = round($nkAvg, 2);
 
-                // Nilai Samapta (NPS - nilai_akhir)
+                // Nilai Samapta (NPS) — Revisi 18 September 2026: NPP memakai
+                // NILAI KONVERSI (bukan nilai akhir); fallback nilai_akhir
+                // hanya untuk data lama yang belum punya konversi.
                 $ns = NilaiSamapta::where('peserta_didik_id', $peserta->id)
                     ->where('angkatan_id', $angkatanId)->first();
-                $nilaiSamapta = $ns ? $ns->nilai_akhir : 0;
+                $nilaiSamapta = $ns ? ($ns->nilai_konversi ?? $ns->nilai_akhir ?? 0) : 0;
 
                 // Kompilasi
                 $nilaiAkhir = ($nilaiAkademik * $ba) + ($nilaiKepribadian * $bk) + ($nilaiSamapta * $bs);
@@ -148,14 +151,15 @@ class KompilasiNilaiController extends Controller
             ->get();
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
         $sh = $spreadsheet->getActiveSheet();
         $sh->setTitle('Kompilasi Nilai');
 
         $sh->mergeCells('A1:I1');
         $sh->setCellValue('A1', 'NILAI PRESTASI PENDIDIKAN (NPP) — ' . $angkatan?->skadik?->nama . ' Angkatan ' . $angkatan?->nomor_angkatan);
         $sh->getStyle('A1')->applyFromArray([
-            'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => '000000']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
         ]);
 
@@ -163,21 +167,21 @@ class KompilasiNilaiController extends Controller
         $sh->setCellValue('A2', 'A=' . ($data->first()?->bobot_akademik ?? 70) . '% | K=' . ($data->first()?->bobot_kepribadian ?? 20) . '% | S=' . ($data->first()?->bobot_samapta ?? 10) . '% | Dicetak: ' . now()->format('d/m/Y H:i'));
         $sh->getStyle('A2')->getFont()->setItalic(true)->setSize(10);
 
-        $headers = ['Rank', 'NRP', 'Pangkat', 'Nama', 'N. Akademik (' . ($data->first()?->bobot_akademik ?? 70) . '%)', 'N. Kepribadian (' . ($data->first()?->bobot_kepribadian ?? 20) . '%)', 'N. Samapta (' . ($data->first()?->bobot_samapta ?? 10) . '%)', 'NPP', 'Predikat'];
+        $headers = ['Rank', 'Nama', 'Pangkat', 'NRP', 'N. Akademik (' . ($data->first()?->bobot_akademik ?? 70) . '%)', 'N. Kepribadian (' . ($data->first()?->bobot_kepribadian ?? 20) . '%)', 'N. Samapta (' . ($data->first()?->bobot_samapta ?? 10) . '%)', 'NPP', 'Predikat'];
         foreach ($headers as $col => $h) {
             $c = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1);
             $sh->setCellValue($c . '4', $h);
         }
         $sh->getStyle('A4:I4')->applyFromArray([
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '6366F1']],
+            'font' => ['bold' => true, 'color' => ['rgb' => '000000']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER, 'wrapText' => true],
         ]);
 
         $sh->getColumnDimension('A')->setWidth(6);
-        $sh->getColumnDimension('B')->setWidth(14);
+        $sh->getColumnDimension('B')->setWidth(32);
         $sh->getColumnDimension('C')->setWidth(12);
-        $sh->getColumnDimension('D')->setWidth(32);
+        $sh->getColumnDimension('D')->setWidth(14);
         $sh->getColumnDimension('E')->setWidth(18);
         $sh->getColumnDimension('F')->setWidth(18);
         $sh->getColumnDimension('G')->setWidth(18);
@@ -187,29 +191,29 @@ class KompilasiNilaiController extends Controller
         $row = 5;
         foreach ($data as $d) {
             $sh->setCellValue("A{$row}", $d->rank);
-            $sh->setCellValue("B{$row}", $d->peserta->nrp);
+            $sh->setCellValue("B{$row}", $d->peserta->nama);
             $sh->setCellValue("C{$row}", $d->peserta->pangkat);
-            $sh->setCellValue("D{$row}", $d->peserta->nama);
+            ExportFile::setText($sh, "D{$row}", $d->peserta->nrp);
             $sh->setCellValue("E{$row}", $d->nilai_akademik);
             $sh->setCellValue("F{$row}", $d->nilai_kepribadian);
             $sh->setCellValue("G{$row}", $d->nilai_samapta);
             $sh->setCellValue("H{$row}", $d->nilai_akhir);
             $sh->setCellValue("I{$row}", $d->predikat_huruf);
 
-            // Color code rank
+            // Highlight rank 1-3 — skala abu-abu
             if ($d->rank === 1) {
                 $sh->getStyle("A{$row}:I{$row}")->getFill()
                     ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                    ->getStartColor()->setRGB('FEF3C7');
+                    ->getStartColor()->setRGB('FFFFFF');
                 $sh->getStyle("H{$row}")->getFont()->setBold(true);
             } elseif ($d->rank === 2) {
                 $sh->getStyle("A{$row}:I{$row}")->getFill()
                     ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                    ->getStartColor()->setRGB('F3F4F6');
+                    ->getStartColor()->setRGB('FFFFFF');
             } elseif ($d->rank === 3) {
                 $sh->getStyle("A{$row}:I{$row}")->getFill()
                     ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                    ->getStartColor()->setRGB('FEF9C3');
+                    ->getStartColor()->setRGB('FFFFFF');
             }
 
             $row++;
@@ -217,7 +221,7 @@ class KompilasiNilaiController extends Controller
 
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         return response()->streamDownload(function() use ($writer) { $writer->save('php://output'); },
-            "NPP_Kompilasi_{$angkatan?->skadik?->nama}_Angkatan_{$angkatan?->nomor_angkatan}.xlsx");
+            ExportFile::name($angkatan, 'NPP Kompilasi'));
     }
 
     /**

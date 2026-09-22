@@ -97,9 +97,9 @@
         <thead>
           <tr>
             <th>Rank</th>
-            <th>NRP</th>
-            <th>Pangkat</th>
             <th>Nama</th>
+            <th>Pangkat</th>
+            <th>NRP</th>
             <th style="text-align:right">Jumlah Nilai</th>
             <th style="text-align:right">NPA</th>
             <th style="width:60px">Aksi</th>
@@ -116,9 +116,9 @@
                   <span style="color:#d97706">—</span>
                 @endif
               </td>
-              <td>{{ $d->peserta->nrp }}</td>
-              <td>{{ $d->peserta->pangkat }}</td>
               <td><strong>{{ $d->peserta->nama }}</strong></td>
+              <td>{{ $d->peserta->pangkat }}</td>
+              <td>{{ $d->peserta->nrp }}</td>
               <td style="text-align:right">{{ $d->jumlah_nilai ?? '-' }}</td>
               <td style="text-align:right">
                 @if($hasNPA && $d->npa !== null)

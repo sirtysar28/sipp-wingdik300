@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Angkatan, PesertaDidik, PeriodeNilai, NilaiKepribadian, DetailKepribadian, AspekKepribadian, Skadik};
 use App\Imports\PesertaImport;
+use App\Services\ExportFile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -195,9 +196,12 @@ class PesertaController extends Controller {
         return view('peserta.import', compact('allSkadik', 'skadikId', 'allAngkatan', 'angkatanId', 'angkatan'));
     }
 
-    public function downloadTemplate()
+    public function downloadTemplate(Request $request)
     {
+        $angkatan = Angkatan::with('skadik')->find($request->get('angkatan_id'));
+
         $spreadsheet = new Spreadsheet();
+        ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
         $sheet       = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Template Peserta');
 
@@ -207,8 +211,8 @@ class PesertaController extends Controller {
             $col = chr(65 + $i);
             $sheet->setCellValue("{$col}1", $h);
             $sheet->getStyle("{$col}1")->applyFromArray([
-                'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+                'font'      => ['bold' => true, 'color' => ['rgb' => '000000'], 'size' => 11],
+                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
             ]);
         }
@@ -227,10 +231,16 @@ class PesertaController extends Controller {
             $row = $i + 2;
             foreach ($c as $j => $val) {
                 $col = chr(65 + $j);
-                $sheet->setCellValue("{$col}{$row}", $val);
+                // NRP (C) & Nosis (D) ditulis sebagai teks agar 16 digit tampil penuh
+                // dan nosis "001" tidak kehilangan nol depan.
+                if (in_array($col, ['C', 'D'])) {
+                    ExportFile::setText($sheet, "{$col}{$row}", $val);
+                } else {
+                    $sheet->setCellValue("{$col}{$row}", $val);
+                }
                 $sheet->getStyle("{$col}{$row}")->applyFromArray([
-                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFBEB']],
-                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                 ]);
             }
         }
@@ -238,13 +248,13 @@ class PesertaController extends Controller {
         // Keterangan
         $noteRow = count($contoh) + 3;
         $sheet->setCellValue("A{$noteRow}", "* Isi kolom Nama, Pangkat, NRP, Nosis dari Angkatan peserta yang baru");
-        $sheet->setCellValue("A" . ($noteRow + 1), "* Baris contoh (kuning) boleh dihapus atau ditimpa");
+        $sheet->setCellValue("A" . ($noteRow + 1), "* Baris contoh (abu-abu) boleh dihapus atau ditimpa");
         $sheet->getStyle("A{$noteRow}:D" . ($noteRow + 1))->getFont()->setItalic(true)->setSize(10);
 
         $writer = new XlsxWriter($spreadsheet);
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
-        }, 'template_peserta.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+        }, ExportFile::name($angkatan, 'Template Peserta'), ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
     }
 
     public function import(Request $request)

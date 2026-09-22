@@ -168,11 +168,33 @@
   @elseif($type === 'NPS')
   <div class="metric-grid" style="margin-bottom:16px">
     <div class="metric-card"><div class="metric-label">Total Peserta</div><div class="metric-value">{{ $data->count() }}</div></div>
-    <div class="metric-card"><div class="metric-label">Rata-rata NPS</div><div class="metric-value" style="color:#ea580c">{{ round($data->avg('nilai_akhir') ?? 0, 2) }}</div></div>
-    <div class="metric-card"><div class="metric-label">NPS Tertinggi</div><div class="metric-value" style="color:#4f46e5">{{ round($data->max('nilai_akhir') ?? 0, 2) }}</div></div>
-    <div class="metric-card"><div class="metric-label">NPS Terendah</div><div class="metric-value" style="color:#dc2626">{{ round($data->min('nilai_akhir') ?? 0, 2) }}</div></div>
+    <div class="metric-card"><div class="metric-label">Rata-rata NPS</div><div class="metric-value" style="color:#ea580c">{{ round($data->avg('nilai_konversi') ?? 0, 2) }}</div></div>
+    <div class="metric-card"><div class="metric-label">NPS Tertinggi</div><div class="metric-value" style="color:#4f46e5">{{ round($data->max('nilai_konversi') ?? 0, 2) }}</div></div>
+    <div class="metric-card"><div class="metric-label">NPS Terendah</div><div class="metric-value" style="color:#dc2626">{{ round($data->min('nilai_konversi') ?? 0, 2) }}</div></div>
   </div>
   @endif
+
+  {{-- Revisi 18 Sept 2026 (2): nama mapel dibaca dari BAWAH ke ATAS
+       (vertical-rl dibalik via rotate 180°). Info JP/B/HN TIDAK miring —
+       vertikal bawah→atas, sejajar DI BAWAH nama mapel. --}}
+  <style>
+    .th-mp-vert { text-align:center; vertical-align:bottom; padding:10px 3px; min-width:34px; max-width:64px; }
+    .th-mp-vert .mp-vert-nama {
+      display:inline-block;
+      writing-mode:vertical-rl;
+      transform:rotate(180deg);             /* dibalik: baca dari bawah ke atas */
+      font-size:9px; font-weight:600; line-height:1.25;
+      white-space:nowrap; letter-spacing:.2px;
+    }
+    .th-mp-vert .mp-vert-info {
+      display:block;
+      writing-mode:vertical-rl;
+      transform:rotate(180deg);             /* vertikal dari bawah ke atas */
+      font-weight:600; font-size:7px; color:#666;
+      line-height:1; white-space:nowrap;
+      margin-top:3px;
+    }
+  </style>
 
   {{-- Tabel --}}
   <div class="card" style="padding:0;overflow:hidden">
@@ -181,19 +203,17 @@
         <thead>
           <tr>
             <th>Rank</th>
-            <th>NRP</th>
-            <th>Pangkat</th>
             <th>Nama</th>
+            <th>Pangkat</th>
+            <th>NRP</th>
             @if($type === 'NPA' && $mataPelajaran->count() > 0)
               @foreach($mataPelajaran as $mp)
-              <th style="text-align:center;font-size:8px;white-space:normal;max-width:85px">
-                {{ $mp->nama }}
-                <div style="font-weight:400;font-size:7px;color:#888;line-height:1.4;margin-top:2px">
-                  JP:{{ $mp->jp }} · B:{{ $mp->bobot }} · HN:{{ $mp->harga_nilai_calc }}
-                </div>
+              <th class="th-mp-vert" title="{{ $mp->nama }}">
+                <span class="mp-vert-nama">{{ $mp->nama }}</span>
+                <span class="mp-vert-info">JP:{{ $mp->jp }} · B:{{ $mp->bobot }} · HN:{{ $mp->harga_nilai_calc }}</span>
               </th>
               @endforeach
-              <th style="text-align:center;font-size:8px;background:#eef2ff">Σ(MP×HN)</th>
+              <th style="text-align:center;font-size:8px;background:#ffffff">Σ(MP×HN)</th>
               <th style="text-align:right">NPA</th>
             @elseif($type === 'NPA')
               <th style="text-align:right">Jumlah Nilai</th>
@@ -202,11 +222,11 @@
               <th style="text-align:center">Jarak Lari (m)</th>
               <th style="text-align:center">Nilai Lari (Garjas A)</th>
               <th style="text-align:center">Garjas B</th>
-              <th style="text-align:center">Nilai Konversi</th>
+              <th style="text-align:center">Nilai Akhir</th>
+              <th style="text-align:center">Nilai Konversi (NPS)</th>
               {{-- Revisi 26 Agustus 2026: kategori (Baik/Cukup/Kurang) dihitung
                    dari NILAI KONVERSI, bukan nilai akhir --}}
               <th style="text-align:center">Kategori</th>
-              <th style="text-align:right">NPS</th>
             @endif
             <th style="min-width:120px">Aksi</th>
           </tr>
@@ -216,9 +236,9 @@
           @php $peserta = $d->peserta; @endphp
           <tr>
             <td style="text-align:center;font-weight:600">{{ $idx + 1 }}</td>
-            <td style="font-size:12px;color:#888">{{ $peserta?->nrp ?? '-' }}</td>
-            <td>{{ $peserta?->pangkat ?? '-' }}</td>
             <td><strong>{{ $peserta?->nama ?? 'Peserta Dihapus' }}</strong></td>
+            <td>{{ $peserta?->pangkat ?? '-' }}</td>
+            <td style="font-size:12px;color:#888">{{ $peserta?->nrp ?? '-' }}</td>
             @if($type === 'NPA')
               @if($mataPelajaran->count() > 0)
                 @php
@@ -234,7 +254,7 @@
                 @endphp
                 <td style="text-align:center;font-size:11px">{{ $valMP ?: '-' }}</td>
                 @endforeach
-                <td style="text-align:center;font-size:11px;background:#f0f0ff;font-weight:600">{{ number_format(round($sumMPHN, 2), 2, ',', '.') }}</td>
+                <td style="text-align:center;font-size:11px;background:#ffffff;font-weight:600">{{ number_format(round($sumMPHN, 2), 2, ',', '.') }}</td>
               @else
                 <td style="text-align:right">{{ $d->jumlah_nilai ?? '-' }}</td>
               @endif
@@ -254,6 +274,9 @@
               <td style="text-align:center">{{ $d->jarak_lari ?? '-' }}</td>
               <td style="text-align:center">{{ $d->nilai_lari ?? '-' }}</td>
               <td style="text-align:center">{{ $d->garjas_b_nilai ?? '-' }}</td>
+              <td style="text-align:center">
+                <span style="font-weight:700;font-size:15px">{{ $d->nilai_akhir ?? '-' }}</span>
+              </td>
               <td style="text-align:center;font-weight:600;color:{{ ($d->nilai_konversi ?? null) !== null ? $predikatNPS['color'] : '#888' }}">{{ $d->nilai_konversi ?? '-' }}</td>
               <td style="text-align:center">
                 @if(($d->nilai_konversi ?? null) !== null)
@@ -261,9 +284,6 @@
                 @else
                   <span style="color:#d97706;font-size:11px;font-weight:600">⚠ Belum</span>
                 @endif
-              </td>
-              <td style="text-align:right">
-                <span style="font-weight:700;font-size:15px">{{ $d->nilai_akhir ?? '-' }}</span>
               </td>
             @endif
             <td>

@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Angkatan, PesertaDidik, PeriodeNilai, NilaiKepribadian, DetailKepribadian, AspekKepribadian, Skadik};
 use App\Imports\KepribadianImport;
+use App\Services\ExportFile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -15,6 +16,7 @@ class KepribadianController extends Controller
     private function makeSheet(?Angkatan $angkatan, ?PeriodeNilai $periode, $pesertaList, $aspekList)
     {
         $spreadsheet = new Spreadsheet();
+        ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
         $sheet = $spreadsheet->getActiveSheet()->setTitle('Nilai Kepribadian');
         $sheet = $spreadsheet->getActiveSheet();
 
@@ -40,15 +42,15 @@ class KepribadianController extends Controller
         $sheet->mergeCells("A5:{$colRnkg}5");
         $sheet->setCellValue('A5', 'Periode: '.($periode?->label ?? ''));
         $sheet->getStyle('A5')->applyFromArray([
-            'font' => ['italic'=>true,'size'=>10,'color'=>['rgb'=>'6B7280']],
+            'font' => ['italic'=>true,'size'=>10,'color'=>['rgb'=>'000000']],
             'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER],
         ]);
 
         $sheet->mergeCells("G6:{$colAspekE}6");
         $sheet->setCellValue('G6', 'NILAI ASPEK MAKRO');
         $sheet->getStyle('G6')->applyFromArray([
-            'font'      => ['bold'=>true,'color'=>['rgb'=>'FFFFFF']],
-            'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'4F46E5']],
+            'font'      => ['bold'=>true,'color'=>['rgb'=>'000000']],
+            'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_CENTER],
         ]);
 
@@ -56,10 +58,10 @@ class KepribadianController extends Controller
             $sheet->mergeCells("{$col}6:{$col}7");
             $sheet->setCellValue("{$col}6", $label);
             $sheet->getStyle("{$col}6")->applyFromArray([
-                'font'      => ['bold'=>true,'color'=>['rgb'=>'FFFFFF'],'size'=>9],
-                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'4F46E5']],
+                'font'      => ['bold'=>true,'color'=>['rgb'=>'000000'],'size'=>9],
+                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
                 'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_CENTER,'wrapText'=>true],
-                'borders'   => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'FFFFFF']]],
+                'borders'   => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'000000']]],
             ]);
         }
 
@@ -67,10 +69,10 @@ class KepribadianController extends Controller
             $col = chr(71 + $i);
             $sheet->setCellValue("{$col}7", strtoupper($aspek->nama));
             $sheet->getStyle("{$col}7")->applyFromArray([
-                'font'      => ['bold'=>true,'color'=>['rgb'=>'FFFFFF'],'size'=>8],
-                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'6366F1']],
+                'font'      => ['bold'=>true,'color'=>['rgb'=>'000000'],'size'=>8],
+                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
                 'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_CENTER,'wrapText'=>true],
-                'borders'   => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'FFFFFF']]],
+                'borders'   => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'000000']]],
             ]);
             $sheet->getColumnDimension($col)->setWidth(11);
         }
@@ -79,10 +81,10 @@ class KepribadianController extends Controller
             $sheet->mergeCells("{$col}6:{$col}7");
             $sheet->setCellValue("{$col}6", $label);
             $sheet->getStyle("{$col}6")->applyFromArray([
-                'font'      => ['bold'=>true,'color'=>['rgb'=>'FFFFFF']],
-                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'4338CA']],
+                'font'      => ['bold'=>true,'color'=>['rgb'=>'000000']],
+                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
                 'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_CENTER],
-                'borders'   => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'FFFFFF']]],
+                'borders'   => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'000000']]],
             ]);
             $sheet->getColumnDimension($col)->setWidth(8);
         }
@@ -104,22 +106,19 @@ class KepribadianController extends Controller
             $sheet->setCellValue("A{$row}", $pi + 1);
             $sheet->setCellValue("B{$row}", $p->nama);
             $sheet->setCellValue("C{$row}", $p->pangkat);
-            $sheet->setCellValue("D{$row}", $p->nrp);
-            $sheet->setCellValue("E{$row}", $p->nosis ?? '');
+            ExportFile::setText($sheet, "D{$row}", $p->nrp);
+            ExportFile::setText($sheet, "E{$row}", $p->nosis ?? '');
             $sheet->setCellValue("F{$row}", 75);
 
             foreach ($aspekList as $i => $aspek) {
                 $col      = chr(71 + $i);
                 $kriteria = $detailMap->get($aspek->id)?->kriteria ?? '';
                 $sheet->setCellValue("{$col}{$row}", $kriteria);
-                $bg = match($kriteria) {
-                    'BS'=>'D1FAE5','B'=>'DBEAFE','C'=>'F9FAFB',
-                    'K'=>'FEF3C7','KS'=>'FEE2E2',default=>'FFFBEB',
-                };
+                // Kriteria — tabel polos: background putih, teks hitam
                 $sheet->getStyle("{$col}{$row}")->applyFromArray([
-                    'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>$bg]],
+                    'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
                     'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER],
-                    'borders'   => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'E5E7EB']]],
+                    'borders'   => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'000000']]],
                 ]);
             }
 
@@ -127,15 +126,14 @@ class KepribadianController extends Controller
             $sheet->getStyle("{$colJml}{$row}")->applyFromArray([
                 'font'      => ['bold'=>true],
                 'alignment' => ['horizontal'=>Alignment::HORIZONTAL_CENTER],
-                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'EEF2FF']],
+                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
             ]);
             $sheet->setCellValue("{$colRnkg}{$row}", $nk ? ($pi+1) : '');
             $sheet->getStyle("{$colRnkg}{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-            $bgRow = $pi%2===0?'FFFFFF':'F9FAFB';
             $sheet->getStyle("A{$row}:{$colRnkg}{$row}")->applyFromArray([
-                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>$bgRow]],
-                'borders'   => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'E5E7EB']]],
+                'fill'      => ['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
+                'borders'   => ['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'000000']]],
                 'alignment' => ['vertical'=>Alignment::VERTICAL_CENTER],
             ]);
             $sheet->getStyle("A{$row}:F{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -144,12 +142,12 @@ class KepribadianController extends Controller
 
         $fr = $pesertaList->count() + 9;
         $sheet->mergeCells("A{$fr}:{$colRnkg}{$fr}");
-        $sheet->setCellValue("A{$fr}", 'Keterangan: BS=Baik Sekali(+0.5) | B=Baik(+0.25) | C=Cukup(0) | K=Kurang(-0.25) | KS=Kurang Sekali(-0.5) | Kolom kuning = belum diisi');
-        $sheet->getStyle("A{$fr}")->applyFromArray(['font'=>['italic'=>true,'size'=>9,'color'=>['rgb'=>'6B7280']],'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'F3F4F6']]]);
+        $sheet->setCellValue("A{$fr}", 'Keterangan: BS=Baik Sekali(+0.5) | B=Baik(+0.25) | C=Cukup(0) | K=Kurang(-0.25) | KS=Kurang Sekali(-0.5)');
+        $sheet->getStyle("A{$fr}")->applyFromArray(['font'=>['italic'=>true,'size'=>9,'color'=>['rgb'=>'000000']],'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'FFFFFF']]]);
 
         $sheet->mergeCells("A".($fr+1).":{$colRnkg}".($fr+1));
         $sheet->setCellValue("A".($fr+1), 'Cara impor: Isi kolom aspek dengan BS/B/C/K/KS lalu upload via menu Impor Nilai Kepribadian.');
-        $sheet->getStyle("A".($fr+1))->applyFromArray(['font'=>['italic'=>true,'size'=>9,'color'=>['rgb'=>'92400E']],'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'FEF3C7']]]);
+        $sheet->getStyle("A".($fr+1))->applyFromArray(['font'=>['italic'=>true,'size'=>9,'color'=>['rgb'=>'000000']],'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]]]);
 
         return $spreadsheet;
     }
@@ -351,7 +349,7 @@ class KepribadianController extends Controller
             ->with(['nilaiKepribadian' => fn($q) => $q->where('periode_nilai_id', $periodeId)->with('detail')])->get();
 
         $spreadsheet = $this->makeSheet($angkatan, $periode, $peserta, $aspekList);
-        $filename    = preg_replace('/[^A-Za-z0-9_\-.]/', '_', "template_kepribadian_{$angkatan?->nomor_angkatan}_{$periode?->label}.xlsx");
+        $filename    = ExportFile::name($angkatan, 'NPK', $periode?->label ?? '');
         $writer      = new XlsxWriter($spreadsheet);
         return response()->streamDownload(fn() => $writer->save('php://output'), $filename, ['Content-Type'=>'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Cache-Control'=>'max-age=0']);
     }

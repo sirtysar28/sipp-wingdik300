@@ -89,8 +89,9 @@ class KepribadianImport
             if (!isset($rows[$rowNum])) continue;
             $row = $rows[$rowNum];
 
-            $nrp   = trim($row[$colNrp] ?? '');
-            $nosis = trim($row[$colNosis] ?? '');
+            // NRP/Nosis dinormalisasi: angka panjang & notasi ilmiah → digit penuh
+            $nrp   = \App\Services\ExportFile::digitText($row[$colNrp] ?? '');
+            $nosis = \App\Services\ExportFile::digitText($row[$colNosis] ?? '');
 
             // Skip baris kosong atau baris keterangan
             if (empty($nrp) && empty($nosis)) continue;

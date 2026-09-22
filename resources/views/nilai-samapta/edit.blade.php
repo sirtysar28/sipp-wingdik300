@@ -61,9 +61,9 @@
 
       @if($nilai)
         <div style="background:#f5f3ff;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px">
-          <strong style="color:#7c3aed">Predikat:</strong>
+          <strong style="color:#7c3aed">Kategori:</strong>
           <span style="color:{{ $nilai->predikat['color'] }};font-weight:600">{{ $nilai->predikat['icon'] }} {{ $nilai->predikat['label'] }}</span>
-          <span style="color:#aaa"> (otomatis dari Nilai Akhir)</span>
+          <span style="color:#aaa"> (otomatis dari Nilai Konversi / NPS)</span>
         </div>
       @endif
 

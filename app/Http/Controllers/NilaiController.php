@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\{Nilai, PesertaDidik, PeriodeNilai, Angkatan, Skadik};
 use App\Exports\{NilaiExport, LeaderboardExport};
 use App\Imports\NilaiImport;
+use App\Services\ExportFile;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -111,8 +112,8 @@ class NilaiController extends Controller {
         $angkatanId = $request->get('angkatan_id');
         $periodeId  = $request->get('periode_id');
         $periode    = PeriodeNilai::find($periodeId);
-        $angkatan   = Angkatan::find($angkatanId);
-        $filename   = preg_replace('/[^A-Za-z0-9_\-.]/', '_', "nilai_{$angkatan?->nomor_angkatan}_{$periode?->label}.xlsx");
+        $angkatan   = Angkatan::with('skadik')->find($angkatanId);
+        $filename   = ExportFile::name($angkatan, 'Nilai', $periode?->label ?? '');
         return Excel::download(new NilaiExport($angkatanId, $periodeId), $filename);
     }
 
@@ -121,55 +122,57 @@ class NilaiController extends Controller {
         $angkatanId = $request->get('angkatan_id');
         $periodeId  = $request->get('periode_id');
         $periode    = PeriodeNilai::find($periodeId);
-        $angkatan   = Angkatan::find($angkatanId);
-        $filename   = preg_replace('/[^A-Za-z0-9_\-.]/', '_', "leaderboard_{$angkatan?->nomor_angkatan}_{$periode?->label}.xlsx");
+        $angkatan   = Angkatan::with('skadik')->find($angkatanId);
+        $filename   = ExportFile::name($angkatan, 'Leaderboard', $periode?->label ?? '');
         return Excel::download(new LeaderboardExport($angkatanId, $periodeId), $filename);
     }
 
     // ── Download Template ─────────────────────────────────────
     public function downloadTemplate(Request $request) {
         $angkatanId = $request->get('angkatan_id');
+        $angkatan   = Angkatan::with('skadik')->find($angkatanId);
         $peserta    = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
 
         $spreadsheet = new Spreadsheet();
+        ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
         $sheet       = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Template Nilai');
 
-        $headers = ['Nosis','NRP','Pangkat','Nama','Akademik','Fisik','Sikap','Kepemimpinan'];
+        $headers = ['Nama','Pangkat','NRP','Nosis','Akademik','Fisik','Sikap','Kepemimpinan'];
         foreach ($headers as $i => $h) {
             $col = chr(65 + $i);
             $sheet->setCellValue("{$col}1", $h);
             $sheet->getStyle("{$col}1")->applyFromArray([
-                'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+                'font'      => ['bold' => true, 'color' => ['rgb' => '000000'], 'size' => 11],
+                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
             ]);
-            $sheet->getColumnDimension($col)->setWidth($i === 3 ? 32 : 16);
+            $sheet->getColumnDimension($col)->setWidth($i === 0 ? 32 : 16);
         }
 
         foreach ($peserta as $i => $p) {
             $row = $i + 2;
-            $sheet->setCellValue("A{$row}", $p->nosis);
-            $sheet->setCellValue("B{$row}", $p->nrp);
-            $sheet->setCellValue("C{$row}", $p->pangkat);
-            $sheet->setCellValue("D{$row}", $p->nama);
+            $sheet->setCellValue("A{$row}", $p->nama);
+            $sheet->setCellValue("B{$row}", $p->pangkat);
+            ExportFile::setText($sheet, "C{$row}", $p->nrp);
+            ExportFile::setText($sheet, "D{$row}", $p->nosis);
             $sheet->getStyle("A{$row}:H{$row}")->applyFromArray([
-                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
             ]);
             $sheet->getStyle("E{$row}:H{$row}")->applyFromArray([
-                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFBEB']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             ]);
         }
 
         $lastRow = $peserta->count() + 3;
         $sheet->setCellValue("A{$lastRow}", "* Isi kolom Akademik, Fisik, Sikap, Kepemimpinan dengan nilai 0-100");
-        $sheet->setCellValue("A".($lastRow+1), "* Jangan mengubah kolom Nosis, NRP, Pangkat, dan Nama");
+        $sheet->setCellValue("A".($lastRow+1), "* Jangan mengubah kolom Nama, Pangkat, NRP, dan Nosis");
         $sheet->getStyle("A{$lastRow}:H".($lastRow+1))->getFont()->setItalic(true)->setSize(10);
 
         $writer = new XlsxWriter($spreadsheet);
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
-        }, 'template_nilai.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+        }, ExportFile::name($angkatan, 'Template Nilai'), ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
     }
 
     // ── Impor dari Excel ─────────────────────────────────────

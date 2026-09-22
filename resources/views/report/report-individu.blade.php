@@ -88,7 +88,7 @@
     @php
       $npaCard = $akademik ? round($akademik->npa, 2) : round($kompilasi->nilai_akademik, 2);
       $npkCard = round($kepribadianAvg, 2);
-      $npsCard = $samapta ? round($samapta->nilai_akhir, 2) : round($kompilasi->nilai_samapta, 2);
+      $npsCard = $samapta ? round($samapta->nilai_konversi ?? $samapta->nilai_akhir ?? 0, 2) : round($kompilasi->nilai_samapta, 2);
       $nppCard = round(($npaCard * $kompilasi->bobot_akademik / 100) + ($npkCard * $kompilasi->bobot_kepribadian / 100) + ($npsCard * $kompilasi->bobot_samapta / 100), 2);
     @endphp
     <div style="text-align:center;background:linear-gradient(135deg,#eef2ff,#f5f3ff);padding:12px 20px;border-radius:10px;border:1px solid #c7d2fe">
@@ -170,10 +170,10 @@
           <span style="color:#888">Garjas B</span><span>{{ $samapta->garjas_b_nilai ?? '-' }}</span>
         </div>
         <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #f0f0f5;font-size:11px">
-          <span style="color:#888">Nilai Konversi</span><span>{{ $samapta->nilai_konversi ?? '-' }}</span>
+          <span style="color:#888">Nilai Akhir</span><span style="font-weight:600">{{ $samapta->nilai_akhir ?? '-' }}</span>
         </div>
         <div style="display:flex;justify-content:space-between;padding:2px 0;font-size:11px">
-          <span style="color:#888;font-weight:600">Nilai Akhir NPS</span><span style="font-weight:700;color:#ea580c">{{ $samapta->nilai_akhir }}</span>
+          <span style="color:#888;font-weight:600">Nilai Konversi (NPS)</span><span style="font-weight:700;color:#ea580c">{{ $samapta->nilai_konversi ?? '-' }}</span>
         </div>
       </div>
     @else
@@ -189,7 +189,7 @@
   // Gunakan NPA asli dari nilai_akademik (bukan nilai_kompilasi yang mungkin salah)
   $npaAsli = $akademik ? round($akademik->npa, 2) : round($kompilasi->nilai_akademik, 2);
   $npkAsli = round($kepribadianAvg, 2);
-  $npsAsli = $samapta ? round($samapta->nilai_akhir, 2) : round($kompilasi->nilai_samapta, 2);
+  $npsAsli = $samapta ? round($samapta->nilai_konversi ?? $samapta->nilai_akhir ?? 0, 2) : round($kompilasi->nilai_samapta, 2);
   $nppFix = round(($npaAsli * $kompilasi->bobot_akademik / 100) + ($npkAsli * $kompilasi->bobot_kepribadian / 100) + ($npsAsli * $kompilasi->bobot_samapta / 100), 2);
 @endphp
 <div class="card">

@@ -71,7 +71,10 @@ class NppCalculator
 
             $npa = $na ? round($na->npa, 2) : 0;
             $npk = $kepribadianAvgs->has($p->id) ? round($kepribadianAvgs[$p->id], 2) : 0;
-            $nps = $ns ? round($ns->nilai_akhir, 2) : 0;
+            // Revisi 18 September 2026: NPP memakai NILAI KONVERSI NPS
+            // (bukan nilai akhir). Fallback ke nilai_akhir hanya untuk data
+            // lama yang belum punya nilai konversi.
+            $nps = $ns ? round($ns->nilai_konversi ?? $ns->nilai_akhir ?? 0, 2) : 0;
             $npp = round(($npa * $bA / 100) + ($npk * $bK / 100) + ($nps * $bS / 100), 2);
 
             $predikat = KompilasiNilai::getPredikat($npp);

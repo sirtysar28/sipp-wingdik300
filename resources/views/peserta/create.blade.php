@@ -38,15 +38,15 @@
           <input type="text" name="nama" value="{{ old('nama') }}" placeholder="Agil Maulana Wardhana" required>
         </div>
         <div class="form-group">
-          <label>NRP <span style="color:#dc2626">*</span></label>
-          <input type="text" name="nrp" value="{{ old('nrp') }}" placeholder="3525101070562147" required>
+          <label>Pangkat <span style="color:#dc2626">*</span></label>
+          <input type="text" name="pangkat" value="{{ old('pangkat') }}" placeholder="Serda" required>
         </div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-group">
-          <label>Pangkat <span style="color:#dc2626">*</span></label>
-          <input type="text" name="pangkat" value="{{ old('pangkat') }}" placeholder="Serda" required>
+          <label>NRP <span style="color:#dc2626">*</span></label>
+          <input type="text" name="nrp" value="{{ old('nrp') }}" placeholder="3525101070562147" required>
         </div>
         <div class="form-group">
           <label>Nosis <span style="color:#dc2626">*</span></label>

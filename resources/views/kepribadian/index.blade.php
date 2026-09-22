@@ -110,8 +110,8 @@
         <tr>
           <th>No</th>
           <th>Nama</th>
-          <th>NRP</th>
           <th>Pangkat</th>
+          <th>NRP</th>
           <th style="text-align:center">Nilai Kepribadian</th>
           <th style="text-align:center">Status</th>
           <th style="text-align:center">Aksi</th>
@@ -129,8 +129,8 @@
               <span style="font-weight:500">{{ $p->nama }}</span>
             </div>
           </td>
-          <td style="color:#aaa">{{ $p->nrp }}</td>
           <td><span class="badge badge-blue">{{ $p->pangkat }}</span></td>
+          <td style="color:#aaa">{{ $p->nrp }}</td>
           <td style="text-align:center">
             @if($p->kep)
               @php
@@ -142,7 +142,7 @@
                 {{ $val }}
               </span>
             @else
-              <span style="color:#ddd;font-size:12px">—</span>
+              <span style="color:#999;font-size:12px">—</span>
             @endif
           </td>
           <td style="text-align:center">

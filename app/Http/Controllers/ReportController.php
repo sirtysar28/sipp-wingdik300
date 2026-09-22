@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Angkatan, PesertaDidik, KompilasiNilai, NilaiAkademik, NilaiKepribadian, NilaiSamapta, PeriodeNilai, Skadik, Penandatangan};
 use App\Services\NppCalculator;
+use App\Services\ExportFile;
 use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -260,7 +261,7 @@ class ReportController extends Controller
                         'bobot_samapta'     => $ref->bobot_samapta     ?? NppCalculator::BOBOT_SAMAPTA_DEFAULT,
                         'nilai_akademik'    => $akademik ? round($akademik->npa, 2) : 0,
                         'nilai_kepribadian' => round($kepribadianAvg, 2),
-                        'nilai_samapta'     => $samapta ? round($samapta->nilai_akhir, 2) : 0,
+                        'nilai_samapta'     => $samapta ? round($samapta->nilai_konversi ?? $samapta->nilai_akhir ?? 0, 2) : 0,
                         'predikat_huruf'    => '-',
                         'predikat_angka'    => 0,
                     ];
@@ -322,59 +323,198 @@ class ReportController extends Controller
         }
     }
 
+    /**
+     * Baris info penandatangan utk sheet Excel — Revisi 22 Sept 2026:
+     * Danskadik (kolom kiri "Mengetahui") kini berlaku di SEMUA report
+     * (NPA/NPK/NPS/NPP — cetak & ekspor), bukan NPP saja.
+     * Format: "Mengetahui: <danskadik>   |   Penandatangan: <jenis laporan>"
+     */
+    private function infoPenandatanganExcel($sheet, string $cell, string $jenis, ?int $skadikId, int $fontSize = 10): void
+    {
+        $ttdKiri  = Penandatangan::getPenandatangan('danskadik', $skadikId);
+        $ttdKanan = Penandatangan::getPenandatangan($jenis, $skadikId);
+
+        $kiri = '';
+        if ($ttdKiri) {
+            $kiri = 'Mengetahui: ' . $ttdKiri->nama
+                . ($ttdKiri->pangkat ? ', ' . $ttdKiri->pangkat : '')
+                . ' — ' . $ttdKiri->jabatan;
+        }
+        $kanan = '';
+        if ($ttdKanan) {
+            $kanan = 'Penandatangan: ' . $ttdKanan->nama
+                . ($ttdKanan->pangkat ? ', ' . $ttdKanan->pangkat : '')
+                . ($ttdKanan->nrp ? ', ' . $ttdKanan->nrp : '')
+                . ' — ' . $ttdKanan->jabatan;
+        }
+
+        $gabung = implode('   |   ', array_filter([$kiri, $kanan]));
+        if ($gabung !== '') {
+            $sheet->setCellValue($cell, $gabung);
+            $sheet->getStyle($cell)->getFont()->setItalic(true)->setSize($fontSize);
+        }
+    }
+
     // ── Ekspor Report NPA ───────────────────────────────────
+    // Revisi 18 September 2026: struktur Excel disamakan dengan tabel PREVIEW
+    // aplikasi & PDF cetak NPA:
+    //  - kolom No, Rank, NRP, Pangkat, Nama
+    //  - satu kolom per mata pelajaran: header nama mapel VERTIKAL dibaca
+    //    dari BAWAH ke ATAS (textRotation 90) + info JP/B/HN juga vertikal
+    //    bawah→atas, sejajar DI BAWAH nama mapel (bukan miring) — persis
+    //    header preview/PDF
+    //  - kolom Σ(MP×HN) dan NPA (nilai per mapel diambil dari detail_nilai)
+    //  - daftar BERBASIS PESERTA (belum diberi NPA tetap tampil), urut NPA desc
     public function eksporNPA(Request $request)
     {
         try {
             $angkatanId = $request->get('angkatan_id');
             $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
-            $data = NilaiAkademik::with('peserta')->where('angkatan_id', $angkatanId)->orderBy('npa', 'desc')->get();
+
+            // Mata pelajaran sekolah (urutan pivot = urutan index detail_nilai)
+            $mataPelajaran = collect();
+            if ($angkatan && $angkatan->skadik_id) {
+                $mataPelajaran = \App\Models\MataPelajaran::forSkadik($angkatan->skadik_id, true);
+            }
+            $nMapel = $mataPelajaran->count();
+
+            // Data berbasis peserta — identik dengan reportNPA (preview)
+            $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
+            $nilaiMap = NilaiAkademik::where('angkatan_id', $angkatanId)->get()->keyBy('peserta_didik_id');
+            $data = $pesertaList->map(function ($p) use ($nilaiMap) {
+                $na = $nilaiMap->get($p->id);
+                if ($na) { $na->setRelation('peserta', $p); return $na; }
+                return (object)[
+                    'peserta' => $p, 'peserta_didik_id' => $p->id,
+                    'npa' => null, 'jumlah_nilai' => null, 'detail_nilai' => [],
+                ];
+            })->sortByDesc(fn($d) => $d->npa ?? -1)->values();
+
+            $totalHN = $mataPelajaran->sum(fn($mp) => $mp->harga_nilai_calc);
+            $maxLenNama = $mataPelajaran->max(fn($mp) => mb_strlen($mp->nama)) ?? 0;
 
             $spreadsheet = new Spreadsheet();
+            ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
             $sh = $spreadsheet->getActiveSheet()->setTitle('Report NPA');
+            $colName = fn(int $i) => \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
 
-            $sh->mergeCells('A1:F1');
+            $colSum = $colName(5 + $nMapel + 1); // kolom Σ(MP×HN)
+            $colNpa = $colName(5 + $nMapel + 2); // kolom NPA
+            $lastCol = $nMapel > 0 ? $colNpa : 'G';
+
+            // Judul
+            $sh->mergeCells("A1:{$lastCol}1");
             $sh->setCellValue('A1', 'REPORT NILAI PRESTASI AKADEMIK (NPA) — ' . $angkatan?->skadik?->nama . ' Angkatan ' . $angkatan?->nomor_angkatan);
             $sh->getStyle('A1')->applyFromArray([
-                'font'=>['bold'=>true,'size'=>14,'color'=>['rgb'=>'FFFFFF']],
-                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'059669']],
+                'font'=>['bold'=>true,'size'=>14,'color'=>['rgb'=>'000000']],
+                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
                 'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
             ]);
 
-            $penandatangan = Penandatangan::getPenandatangan('akademik', $angkatan?->skadik_id);
+            $this->infoPenandatanganExcel($sh, 'A2', 'akademik', $angkatan?->skadik_id);
 
-            if ($penandatangan) {
-                $ttdText = $penandatangan->nama;
-                if ($penandatangan->pangkat) $ttdText .= ', ' . $penandatangan->pangkat;
-                $ttdText .= ', ' . $penandatangan->nrp . ' — ' . $penandatangan->jabatan;
-                $sh->setCellValue('A2', 'Penandatangan: ' . $ttdText);
-                $sh->getStyle('A2')->getFont()->setItalic(true)->setSize(10);
+            // Baris info rumus — sama seperti sub-header PDF cetak NPA
+            if ($nMapel > 0) {
+                $sh->mergeCells("A3:{$lastCol}3");
+                $sh->setCellValue('A3', 'Rumus: NPA = Σ(Nilai MP × HN) / Σ(HN)  |  Σ JP = ' . $mataPelajaran->sum('jp')
+                    . ' · Σ Bobot = ' . $mataPelajaran->sum('bobot') . ' · Σ HN = ' . $totalHN);
+                $sh->getStyle('A3')->getFont()->setItalic(true)->setSize(10);
+                $sh->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             }
 
-            $headers = ['Rank','NRP','Pangkat','Nama','Jumlah Nilai','NPA'];
-            foreach ($headers as $col => $h) {
-                $c = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col+1);
-                $sh->setCellValue($c.'4', $h);
+            // ── Header 2 baris: nama mapel VERTIKAL + JP/B/HN MIRING 45° ──
+            foreach (['No','Rank','Nama','Pangkat','NRP'] as $i => $h) {
+                $c = $colName($i + 1);
+                $sh->mergeCells("{$c}4:{$c}5");
+                $sh->setCellValue("{$c}4", $h);
             }
-            $sh->getStyle('A4:F4')->applyFromArray([
-                'font'=>['bold'=>true,'color'=>['rgb'=>'FFFFFF']],
-                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'10B981']],
-                'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+            if ($nMapel > 0) {
+                $sh->mergeCells("{$colSum}4:{$colSum}5");
+                $sh->setCellValue("{$colSum}4", 'Σ(MP×HN)');
+                $sh->mergeCells("{$colNpa}4:{$colNpa}5");
+                $sh->setCellValue("{$colNpa}4", 'NPA');
+            } else {
+                $sh->mergeCells('F4:F5'); $sh->setCellValue('F4', 'Jumlah Nilai');
+                $sh->mergeCells('G4:G5'); $sh->setCellValue('G4', 'NPA');
+            }
+            $sh->getStyle("A4:{$lastCol}5")->applyFromArray([
+                'font'=>['bold'=>true,'color'=>['rgb'=>'000000']],
+                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
+                'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_CENTER,'wrapText'=>true],
             ]);
+            foreach ($mataPelajaran as $i => $mp) {
+                $c = $colName(6 + $i);
+                // Baris 4: nama mapel VERTIKAL dibaca dari BAWAH ke ATAS
+                $sh->setCellValue("{$c}4", $mp->nama);
+                $sh->getStyle("{$c}4")->applyFromArray([
+                    'alignment'=>['textRotation'=>90,'horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_BOTTOM],
+                ]);
+                $sh->getStyle("{$c}4")->getFont()->setSize(8);
+                // Baris 5: info JP/B/HN TIDAK miring — vertikal bawah→atas,
+                // sejajar di bawah nama mapel (spt preview/PDF)
+                $sh->setCellValue("{$c}5", "JP={$mp->jp}|B={$mp->bobot}|HN={$mp->harga_nilai_calc}");
+                $sh->getStyle("{$c}5")->applyFromArray([
+                    'alignment'=>['textRotation'=>90,'horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_TOP],
+                ]);
+                $sh->getStyle("{$c}5")->getFont()->setSize(8);
+            }
+            $sh->getRowDimension(4)->setRowHeight(min(230, max(80, $maxLenNama * 6 + 12)));
+            $sh->getRowDimension(5)->setRowHeight(95);
 
-            $sh->getColumnDimension('A')->setWidth(6);$sh->getColumnDimension('B')->setWidth(14);
-            $sh->getColumnDimension('C')->setWidth(12);$sh->getColumnDimension('D')->setWidth(32);
-            $sh->getColumnDimension('E')->setWidth(14);$sh->getColumnDimension('F')->setWidth(10);
+            // Lebar kolom
+            $sh->getColumnDimension('A')->setWidth(6);
+            $sh->getColumnDimension('B')->setWidth(6);
+            $sh->getColumnDimension('C')->setWidth(32);
+            $sh->getColumnDimension('D')->setWidth(12);
+            $sh->getColumnDimension('E')->setWidth(14);
+            for ($i = 0; $i < $nMapel; $i++) {
+                $sh->getColumnDimension($colName(6 + $i))->setWidth(7);
+            }
+            if ($nMapel > 0) {
+                $sh->getColumnDimension($colSum)->setWidth(12);
+                $sh->getColumnDimension($colNpa)->setWidth(10);
+            } else {
+                $sh->getColumnDimension('F')->setWidth(14);
+                $sh->getColumnDimension('G')->setWidth(10);
+            }
 
+            // ── Data per peserta ──
             foreach ($data as $i => $d) {
-                $r = $i + 5;
-                $sh->setCellValue("A{$r}", $i+1);$sh->setCellValue("B{$r}", $d->peserta->nrp);
-                $sh->setCellValue("C{$r}", $d->peserta->pangkat);$sh->setCellValue("D{$r}", $d->peserta->nama);
-                $sh->setCellValue("E{$r}", $d->jumlah_nilai);$sh->setCellValue("F{$r}", $d->npa);
+                $r = $i + 6;
+                $detailNilai = is_array($d->detail_nilai) ? $d->detail_nilai : (json_decode($d->detail_nilai ?? '[]', true) ?: []);
+                $sumMPHN = 0;
+                $sh->setCellValue("A{$r}", $i + 1);
+                $sh->setCellValue("B{$r}", $i + 1);
+                $sh->setCellValue("C{$r}", $d->peserta->nama);
+                $sh->setCellValue("D{$r}", $d->peserta->pangkat);
+                ExportFile::setText($sh, "E{$r}", $d->peserta->nrp);
+                foreach ($mataPelajaran as $mpIdx => $mp) {
+                    $c = $colName(6 + $mpIdx);
+                    $valMP = $detailNilai[$mpIdx] ?? 0;
+                    $sumMPHN += $valMP * $mp->harga_nilai_calc;
+                    $sh->setCellValue("{$c}{$r}", ((float) $valMP) > 0 ? $valMP : '-');
+                    $sh->getStyle("{$c}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
+                if ($nMapel > 0) {
+                    $sh->setCellValue("{$colSum}{$r}", round($sumMPHN, 2));
+                    $sh->getStyle("{$colSum}{$r}")->applyFromArray([
+                        'font'=>['bold'=>true],
+                        'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
+                        'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+                    ]);
+                    $sh->setCellValue("{$colNpa}{$r}", $d->npa ?? '-');
+                    $sh->getStyle("{$colNpa}{$r}")->applyFromArray([
+                        'font'=>['bold'=>true,'color'=>['rgb'=>ExportFile::TEXT_BLACK],'size'=>12],
+                        'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+                    ]);
+                } else {
+                    $sh->setCellValue("F{$r}", $d->jumlah_nilai ?? '-');
+                    $sh->setCellValue("G{$r}", $d->npa ?? '-');
+                }
             }
 
             $writer = new Xlsx($spreadsheet);
-            return response()->streamDownload(fn() => $writer->save('php://output'), "Report_NPA_{$angkatan?->nomor_angkatan}.xlsx");
+            return response()->streamDownload(fn() => $writer->save('php://output'), ExportFile::name($angkatan, 'Report NPA'));
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal mengekspor NPA: ' . $e->getMessage());
         }
@@ -441,147 +581,484 @@ class ReportController extends Controller
     }
 
     // ── Ekspor Report NPK ───────────────────────────────────
+    // Revisi 18 September 2026: struktur Excel disamakan dengan tabel PREVIEW
+    // aplikasi & PDF cetak NPK:
+    //  - Sheet "Report NPK": No, Rank, Nama, Pangkat, NRP, nilai per periode,
+    //    Rata-rata + baris "Rata-rata Angkatan" (spt footer preview).
+    //  - Sheet "Detail Parameter": kriteria aspek kepribadian per peserta ×
+    //    periode (spt Tabel 2 pada PDF) lengkap dgn warna BS/B/C/K/KS.
+    //  - Daftar periode dibangun dari DATA yang ada (termasuk periode yatim),
+    //    identik dengan reportNPK (preview) — bukan hanya dari tabel periode.
     public function eksporNPK(Request $request)
     {
         try {
-            $angkatanId = $request->get('angkatan_id');
-            $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
+            $angkatanId  = $request->get('angkatan_id');
+            $angkatan    = Angkatan::with('skadik.lemdik')->find($angkatanId);
             $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
-            $periodes = PeriodeNilai::where('angkatan_id', $angkatanId)->orderBy('tanggal_mulai')->get();
+
+            // Muat semua nilai kepribadian sekali (eager periode + detail aspek)
+            $semuaNilai = NilaiKepribadian::with('periode', 'detail')
+                ->whereIn('peserta_didik_id', $pesertaList->pluck('id'))
+                ->get();
+
+            // Daftar periode dari DATA yang ada — identik dengan preview
+            $periodes = $semuaNilai->pluck('periode')->filter()->unique('id')
+                ->sortBy('tanggal_mulai')->values();
+            $nPer = $periodes->count();
+
+            // Index nilai per peserta × periode (hindari query N+1)
+            $nilaiIndex = [];
+            foreach ($semuaNilai as $nk) {
+                $nilaiIndex[$nk->peserta_didik_id][$nk->periode_nilai_id] = $nk;
+            }
 
             $spreadsheet = new Spreadsheet();
+            ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
+            $colName = fn(int $i) => \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
+            $colRata = $colName(6 + $nPer); // setelah No, Rank, Nama, Pangkat, NRP + n periode
+
+            // ===================== SHEET 1: REKAP NPK =====================
             $sh = $spreadsheet->getActiveSheet()->setTitle('Report NPK');
 
-            $sh->mergeCells('A1:Z1');
+            $sh->mergeCells("A1:{$colRata}1");
             $sh->setCellValue('A1', 'REPORT NILAI PRESTASI KEPRIBADIAN (NPK) — ' . $angkatan?->skadik?->nama . ' Angkatan ' . $angkatan?->nomor_angkatan);
             $sh->getStyle('A1')->applyFromArray([
-                'font'=>['bold'=>true,'size'=>14,'color'=>['rgb'=>'FFFFFF']],
-                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'2563EB']],
+                'font'=>['bold'=>true,'size'=>14,'color'=>['rgb'=>'000000']],
+                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
                 'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
             ]);
 
-            $penandatangan = Penandatangan::getPenandatangan('kepribadian', $angkatan?->skadik_id);
-            if ($penandatangan) {
-                $ttdText = $penandatangan->nama;
-                if ($penandatangan->pangkat) $ttdText .= ', ' . $penandatangan->pangkat;
-                $ttdText .= ', ' . $penandatangan->nrp . ' — ' . $penandatangan->jabatan;
-                $sh->setCellValue('A2', 'Penandatangan: ' . $ttdText);
-                $sh->getStyle('A2')->getFont()->setItalic(true)->setSize(10);
+            $this->infoPenandatanganExcel($sh, 'A2', 'kepribadian', $angkatan?->skadik_id);
+
+            // Header — urutan kolom sama seperti preview (Rank, Nama, Pangkat, NRP, …)
+            $headers = array_merge(
+                ['No', 'Rank', 'Nama', 'Pangkat', 'NRP'],
+                $periodes->map(fn($p) => strtoupper($p->label))->all(),
+                ['Rata-rata']
+            );
+            foreach ($headers as $col => $h) {
+                $sh->setCellValue($colName($col + 1) . '4', $h);
             }
+            $sh->getStyle("A4:{$colRata}4")->applyFromArray([
+                'font'=>['bold'=>true,'color'=>['rgb'=>'000000']],
+                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
+                'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER,'wrapText'=>true],
+            ]);
 
-            $nPer = $periodes->count();
-            $colRata = chr(65 + 3 + $nPer);
-            $colRnkg = chr(65 + 4 + $nPer);
+            $sh->getColumnDimension('A')->setWidth(6);
+            $sh->getColumnDimension('B')->setWidth(6);
+            $sh->getColumnDimension('C')->setWidth(28);
+            $sh->getColumnDimension('D')->setWidth(14);
+            $sh->getColumnDimension('E')->setWidth(18);
+            for ($i = 0; $i < $nPer; $i++) $sh->getColumnDimension($colName(6 + $i))->setWidth(14);
+            $sh->getColumnDimension($colRata)->setWidth(12);
 
-            $sh->setCellValue('A4', 'NO');$sh->setCellValue('B4', 'NAMA');$sh->setCellValue('C4', 'NRP');
-            foreach ($periodes as $i => $per) {
-                $col = chr(68 + $i);
-                $sh->setCellValue($col.'4', strtoupper($per->label));
-                $sh->getStyle($col.'4')->applyFromArray(['alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER,'wrapText'=>true]]);
-            }
-            $sh->setCellValue("{$colRata}4", 'RATA-RATA');
-            $sh->setCellValue("{$colRnkg}4", 'RNKG');
-
-            $styleH = ['font'=>['bold'=>true,'color'=>['rgb'=>'FFFFFF']],'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'3B82F6']],'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER]];
-            $sh->getStyle('A4:'.$colRnkg.'4')->applyFromArray($styleH);
-
-            $sh->getColumnDimension('A')->setWidth(6);$sh->getColumnDimension('B')->setWidth(28);$sh->getColumnDimension('C')->setWidth(18);
-
+            // Data — urut rata-rata desc (yang belum dinilai di akhir), spt preview
             $sorted = [];
             foreach ($pesertaList as $p) {
                 $vals = []; $total = 0; $cnt = 0;
                 foreach ($periodes as $per) {
-                    $nk = NilaiKepribadian::where('peserta_didik_id', $p->id)->where('periode_nilai_id', $per->id)->first();
+                    $nk = $nilaiIndex[$p->id][$per->id] ?? null;
                     $v = $nk ? $nk->nilai_akhir : null;
                     $vals[] = $v;
                     if ($v !== null) { $total += $v; $cnt++; }
                 }
-                $sorted[] = ['peserta' => $p, 'vals' => $vals, 'rata' => $cnt > 0 ? round($total/$cnt, 2) : null];
+                $sorted[] = ['peserta' => $p, 'vals' => $vals, 'rata' => $cnt > 0 ? round($total / $cnt, 2) : null];
             }
             usort($sorted, fn($a, $b) => ($b['rata'] ?? -999) <=> ($a['rata'] ?? -999));
 
             foreach ($sorted as $i => $s) {
                 $r = $i + 5;
-                $sh->setCellValue("A{$r}", $i+1);$sh->setCellValue("B{$r}", $s['peserta']->nama);
-                $sh->setCellValue("C{$r}", $s['peserta']->nrp);
+                $sh->setCellValue("A{$r}", $i + 1);
+                $sh->setCellValue("B{$r}", $i + 1);
+                $sh->setCellValue("C{$r}", $s['peserta']->nama);
+                $sh->setCellValue("D{$r}", $s['peserta']->pangkat);
+                ExportFile::setText($sh, "E{$r}", $s['peserta']->nrp);
                 foreach ($s['vals'] as $j => $v) {
-                    $col = chr(68 + $j);
-                    $sh->setCellValue("{$col}{$r}", $v ?? '');
+                    $sh->setCellValue($colName(6 + $j) . "{$r}", $v ?? '-');
+                    $sh->getStyle($colName(6 + $j) . "{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 }
-                $sh->setCellValue("{$colRata}{$r}", $s['rata']);
-                $sh->setCellValue("{$colRnkg}{$r}", $i+1);
+                $sh->setCellValue("{$colRata}{$r}", $s['rata'] ?? '-');
+                $sh->getStyle("{$colRata}{$r}")->applyFromArray([
+                    'font'=>['bold'=>true,'color'=>['rgb'=>ExportFile::TEXT_BLACK]],
+                    'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
+                    'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+                ]);
+            }
+
+            // Baris footer "Rata-rata Angkatan" — sama seperti tfoot preview
+            if (count($sorted) > 0) {
+                $r = count($sorted) + 5;
+                $sh->mergeCells("A{$r}:E{$r}");
+                $sh->setCellValue("A{$r}", 'Rata-rata Angkatan');
+                $sh->getStyle("A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                foreach ($periodes as $j => $per) {
+                    $avgPer = collect($sorted)->map(fn($s) => $s['vals'][$j] ?? null)->filter()->avg();
+                    $sh->setCellValue($colName(6 + $j) . "{$r}", $avgPer ? round($avgPer, 2) : '-');
+                    $sh->getStyle($colName(6 + $j) . "{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
+                $avgAll = collect($sorted)->map(fn($s) => $s['rata'])->filter()->avg();
+                $sh->setCellValue("{$colRata}{$r}", $avgAll ? round($avgAll, 2) : '-');
+                $sh->getStyle("{$colRata}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sh->getStyle("A{$r}:{$colRata}{$r}")->applyFromArray([
+                    'font'=>['bold'=>true,'color'=>['rgb'=>ExportFile::TEXT_BLACK]],
+                    'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
+                ]);
+            }
+
+            // ============ SHEET 2: DETAIL PARAMETER (spt Tabel 2 PDF) ============
+            \App\Models\AspekKepribadian::ensureSeeded();
+            $aspekList = \App\Models\AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+
+            if ($aspekList->isNotEmpty() && $nPer > 0) {
+                $sh2 = $spreadsheet->createSheet()->setTitle('Detail Parameter');
+                $nAspek = $aspekList->count();
+                $lastCol2 = $colName(2 + ($nAspek + 1) * $nPer);
+
+                $sh2->mergeCells("A1:{$lastCol2}1");
+                $sh2->setCellValue('A1', 'TABEL DETAIL PARAMETER NILAI KEPRIBADIAN — ' . $angkatan?->skadik?->nama . ' Angkatan ' . $angkatan?->nomor_angkatan);
+                $sh2->getStyle('A1')->applyFromArray([
+                    'font'=>['bold'=>true,'size'=>12,'color'=>['rgb'=>'000000']],
+                    'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
+                    'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+                ]);
+                $sh2->mergeCells("A2:{$lastCol2}2");
+                $sh2->setCellValue('A2', 'Keterangan: BS = Baik Sekali (+0,5) · B = Baik (+0,25) · C = Cukup (0) · K = Kurang (-0,25) · KS = Kurang Sekali (-0,5) | Nilai Akhir = 75 + Σ poin');
+                $sh2->getStyle('A2')->getFont()->setItalic(true)->setSize(9);
+
+                // Header: No, Nama, lalu per periode → per aspek (vertikal) + kolom AKHIR
+                $sh2->setCellValue('A4', 'No');
+                $sh2->setCellValue('B4', 'Nama');
+                $maxLenAspek = 0;
+                foreach ($periodes as $pi => $per) {
+                    foreach ($aspekList as $ai => $asp) {
+                        $c = $colName(3 + $pi * ($nAspek + 1) + $ai);
+                        $sh2->setCellValue("{$c}4", strtoupper($asp->nama) . ' (' . $per->label . ')');
+                        $sh2->getStyle("{$c}4")->applyFromArray([
+                            'alignment'=>['textRotation'=>90,'horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_BOTTOM],
+                        ]);
+                        $sh2->getStyle("{$c}4")->getFont()->setSize(7);
+                        $maxLenAspek = max($maxLenAspek, mb_strlen($asp->nama . ' (' . $per->label . ')'));
+                    }
+                    $cAkhir = $colName(3 + $pi * ($nAspek + 1) + $nAspek);
+                    $sh2->setCellValue("{$cAkhir}4", strtoupper($per->label) . ' AKHIR');
+                }
+                $sh2->getStyle("A4:{$lastCol2}4")->applyFromArray([
+                    'font'=>['bold'=>true,'color'=>['rgb'=>'000000']],
+                    'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
+                    'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_CENTER],
+                ]);
+                $sh2->getRowDimension(4)->setRowHeight(min(230, max(90, $maxLenAspek * 5 + 12)));
+
+                $sh2->getColumnDimension('A')->setWidth(6);
+                $sh2->getColumnDimension('B')->setWidth(28);
+                for ($i = 2; $i < 2 + ($nAspek + 1) * $nPer; $i++) {
+                    $sh2->getColumnDimension($colName($i + 1))->setWidth(5);
+                }
+
+                // Kriteria — tabel polos: background putih, teks hitam
+                foreach ($pesertaList->sortBy('nama') as $pi => $p) {  // urut nama, spt PDF
+                    $r = $pi + 5;
+                    $sh2->setCellValue("A{$r}", $pi + 1);
+                    $sh2->setCellValue("B{$r}", $p->nama);
+                    foreach ($periodes as $peri => $per) {
+                        $nk = $nilaiIndex[$p->id][$per->id] ?? null;
+                        $det = $nk ? collect($nk->detail)->keyBy('aspek_kepribadian_id') : collect();
+                        foreach ($aspekList as $ai => $asp) {
+                            $c = $colName(3 + $peri * ($nAspek + 1) + $ai);
+                            $kriteria = $det->get($asp->id)?->kriteria ?? '';
+                            $sh2->setCellValue("{$c}{$r}", $kriteria ?: '-');
+                            $styleK = [
+                                'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+                                'font'=>['size'=>9],
+                            ];
+                            $sh2->getStyle("{$c}{$r}")->applyFromArray($styleK);
+                        }
+                        $cAkhir = $colName(3 + $peri * ($nAspek + 1) + $nAspek);
+                        $sh2->setCellValue("{$cAkhir}{$r}", $nk ? round($nk->nilai_akhir, 2) : '-');
+                        $sh2->getStyle("{$cAkhir}{$r}")->applyFromArray([
+                            'font'=>['bold'=>true],
+                            'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
+                            'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+                        ]);
+                    }
+                }
             }
 
             $writer = new Xlsx($spreadsheet);
-            return response()->streamDownload(fn() => $writer->save('php://output'), "Report_NPK_{$angkatan?->nomor_angkatan}.xlsx");
+            return response()->streamDownload(fn() => $writer->save('php://output'), ExportFile::name($angkatan, 'Report NPK'));
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal mengekspor NPK: ' . $e->getMessage());
         }
     }
 
     // ── Ekspor Report NPS ───────────────────────────────────
+    // Revisi 18 September 2026: struktur Excel disamakan dengan tabel PREVIEW
+    // aplikasi & PDF cetak NPS:
+    //  - kolom "Nilai Konversi (NPS)" + "Kategori" (kategori dihitung dari
+    //    nilai konversi, bukan nilai akhir)
+    //  - daftar BERBASIS PESERTA (belum dinilai tetap tampil), urut nilai akhir desc
+    //  - baris "Rata-rata Angkatan" dihitung dari NILAI KONVERSI (spt PDF)
     public function eksporNPS(Request $request)
     {
         try {
             $angkatanId   = $request->get('angkatan_id');
             $putaranLabel = NilaiSamapta::normalizePutaran($request->get('putaran_label'));
             $angkatan     = Angkatan::with('skadik.lemdik')->find($angkatanId);
-            $data = NilaiSamapta::with('peserta')
-                ->where('angkatan_id', $angkatanId)
+
+            // Data berbasis peserta — identik dengan reportNPS (preview)
+            $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
+            $nilaiMap = NilaiSamapta::where('angkatan_id', $angkatanId)
                 ->where('putaran_label', $putaranLabel)
-                ->orderBy('nilai_akhir', 'desc')->get();
+                ->get()->keyBy('peserta_didik_id');
+            $data = $pesertaList->map(function ($p) use ($nilaiMap) {
+                $ns = $nilaiMap->get($p->id);
+                if ($ns) { $ns->setRelation('peserta', $p); return $ns; }
+                return (object)[
+                    'peserta' => $p, 'peserta_didik_id' => $p->id,
+                    'nilai_akhir' => null, 'jarak_lari' => null, 'nilai_lari' => null,
+                    'garjas_b_nilai' => null, 'nilai_konversi' => null,
+                ];
+            })->sortByDesc(fn($d) => $d->nilai_akhir ?? -1)->values();
 
             $spreadsheet = new Spreadsheet();
+            ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
             $sh = $spreadsheet->getActiveSheet()->setTitle('Report NPS');
 
-            $sh->mergeCells('A1:J1');
+            $sh->mergeCells('A1:K1');
             $sh->setCellValue('A1', 'REPORT NILAI PRESTASI SAMAPTA (NPS) — ' . $angkatan?->skadik?->nama . ' Angkatan ' . $angkatan?->nomor_angkatan . ' — ' . $putaranLabel);
             $sh->getStyle('A1')->applyFromArray([
-                'font'=>['bold'=>true,'size'=>13,'color'=>['rgb'=>'FFFFFF']],
-                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'EA580C']],
+                'font'=>['bold'=>true,'size'=>13,'color'=>['rgb'=>'000000']],
+                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
                 'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
             ]);
 
-            $penandatangan = Penandatangan::getPenandatangan('samapta', $angkatan?->skadik_id);
-            if ($penandatangan) {
-                $ttdText = $penandatangan->nama;
-                if ($penandatangan->pangkat) $ttdText .= ', ' . $penandatangan->pangkat;
-                $ttdText .= ', ' . $penandatangan->nrp . ' — ' . $penandatangan->jabatan;
-                $sh->setCellValue('A2', 'Penandatangan: ' . $ttdText);
-                $sh->getStyle('A2')->getFont()->setItalic(true)->setSize(10);
-            }
+            $this->infoPenandatanganExcel($sh, 'A2', 'samapta', $angkatan?->skadik_id);
 
-            $headers = ['Rank','NRP','Pangkat','Nama','Jarak Lari (m)','Nilai Lari (Garjas A)','Garjas B','Nilai Akhir','Nilai Konversi','Predikat'];
+            // Header — sama seperti preview/PDF (label kolom "Kategori",
+            // bukan "Predikat")
+            $headers = ['No','Rank','Nama','Pangkat','NRP','Jarak Lari (m)','Nilai Lari (Garjas A)','Garjas B','Nilai Akhir','Nilai Konversi (NPS)','Kategori'];
             foreach ($headers as $col => $h) {
                 $c = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col+1);
                 $sh->setCellValue($c.'4', $h);
             }
-            $sh->getStyle('A4:J4')->applyFromArray([
-                'font'=>['bold'=>true,'color'=>['rgb'=>'FFFFFF']],
-                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'F97316']],
+            $sh->getStyle('A4:K4')->applyFromArray([
+                'font'=>['bold'=>true,'color'=>['rgb'=>'000000']],
+                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
                 'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER,'wrapText'=>true],
             ]);
-            $widths = [6,16,14,32,14,18,12,12,14,14];
+            $widths = [6,6,32,14,16,14,18,12,12,14,16];
             foreach ($widths as $i => $w) {
                 $sh->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i+1))->setWidth($w);
             }
 
+            $totalNPS = 0;
+            $countNPS = 0;
             foreach ($data as $i => $d) {
                 $r = $i+5;
-                $sh->setCellValue("A{$r}",$i+1);$sh->setCellValue("B{$r}",$d->peserta->nrp);
-                $sh->setCellValue("C{$r}",$d->peserta->pangkat);$sh->setCellValue("D{$r}",$d->peserta->nama);
-                $sh->setCellValue("E{$r}",$d->jarak_lari);
-                $sh->setCellValue("F{$r}",$d->nilai_lari);
-                $sh->setCellValue("G{$r}",$d->garjas_b_nilai);
-                $sh->setCellValue("H{$r}",$d->nilai_akhir);
-                $sh->setCellValue("I{$r}",$d->nilai_konversi);
-                $sh->setCellValue("J{$r}",$d->predikat['label']);
+                // Guard: objek placeholder (peserta belum dinilai) tidak punya
+                // properti "predikat" — sama seperti guard di preview.
+                $predikat = isset($d->predikat) ? $d->predikat : ['label' => '-'];
+                $nps = $d->nilai_konversi;
+                if ($nps !== null && (float) $nps > 0) { $totalNPS += (float) $nps; $countNPS++; }
+
+                $sh->setCellValue("A{$r}", $i+1);
+                $sh->setCellValue("B{$r}", $i+1);
+                $sh->setCellValue("C{$r}", $d->peserta->nama);
+                $sh->setCellValue("D{$r}", $d->peserta->pangkat);
+                ExportFile::setText($sh, "E{$r}", $d->peserta->nrp);
+                $sh->setCellValue("F{$r}", $d->jarak_lari ?? '-');
+                $sh->setCellValue("G{$r}", $d->nilai_lari ?? '-');
+                $sh->setCellValue("H{$r}", $d->garjas_b_nilai ?? '-');
+                $sh->setCellValue("I{$r}", $d->nilai_akhir ?? '-');
+                $sh->setCellValue("J{$r}", $d->nilai_konversi ?? '-');
+                $sh->setCellValue("K{$r}", ($d->nilai_konversi !== null && (float) $d->nilai_konversi > 0) ? $predikat['label'] : '-');
+
+                foreach (['F','G','H','I','J','K'] as $cc) {
+                    $sh->getStyle("{$cc}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
+                $sh->getStyle("I{$r}")->getFont()->setBold(true);
+                $sh->getStyle("J{$r}")->getFont()->setBold(true)->getColor()->setRGB(ExportFile::TEXT_BLACK);
+            }
+
+            // Baris "Rata-rata Angkatan" — dihitung dari NILAI KONVERSI
+            // (Revisi 17 Sept 2026 pada PDF, kini disamakan di Excel)
+            if ($countNPS > 0) {
+                $r = $data->count() + 5;
+                $sh->mergeCells("A{$r}:I{$r}");
+                $sh->setCellValue("A{$r}", 'Rata-rata Angkatan');
+                $sh->getStyle("A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sh->setCellValue("J{$r}", round($totalNPS / $countNPS, 2));
+                $sh->getStyle("J{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sh->getStyle("A{$r}:K{$r}")->applyFromArray([
+                    'font'=>['bold'=>true],
+                    'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'FFFFFF']],
+                ]);
             }
 
             $writer = new Xlsx($spreadsheet);
-            return response()->streamDownload(fn() => $writer->save('php://output'), "Report_NPS_{$angkatan?->nomor_angkatan}_{$putaranLabel}.xlsx");
+            return response()->streamDownload(fn() => $writer->save('php://output'), ExportFile::name($angkatan, 'Report NPS', $putaranLabel));
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal mengekspor NPS: ' . $e->getMessage());
+        }
+    }
+
+    // ── Ekspor Report NPP (Angkatan) ────────────────────────
+    // Revisi 18 September 2026: isi Excel disamakan dengan "Cetak NPP
+    // Angkatan" (laporan.cetak.semua / cetak-semua.blade.php):
+    //  - data LIVE dari NppCalculator (SEMUA peserta, NPS dari NILAI
+    //    KONVERSI) — bukan record kompilasi lama yang stale
+    //  - kop surat WINGDIK/SKADIK/LEMDIK + judul rekap + baris bobot
+    //  - header 2 baris dgn grup "Komponen Nilai" (Akademik/Kepribadian/
+    //    Samapta) + kolom Predikat "huruf (angka)" + Keterangan
+    //  - warna baris rank 1–3 + footer "Rata-rata Angkatan"
+    public function eksporNPP(Request $request)
+    {
+        try {
+            $angkatanId = $request->get('angkatan_id');
+            $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
+
+            // Data live — sama seperti LaporanController::cetakSemua (PDF)
+            $data = NppCalculator::forAngkatan($angkatanId);
+            $first = $data->first();
+
+            $spreadsheet = new Spreadsheet();
+            ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
+            $sh = $spreadsheet->getActiveSheet()->setTitle('Report NPP');
+
+            $lastCol = 'J'; // Rank..Keterangan (10 kolom)
+
+            // ── Kop surat (sama seperti PDF cetak NPP angkatan) ──
+            $wingdik   = strtoupper($angkatan?->skadik?->lemdik?->wingdik ?? 'WINGDIK');
+            $skadikNama = strtoupper($angkatan?->skadik?->nama_singkat ?? ($angkatan?->skadik?->nama ?? 'SEKOLAH'));
+            $lemdikNama = strtoupper($angkatan?->skadik?->lemdik?->nama ?? '');
+
+            $sh->mergeCells("A1:{$lastCol}1");
+            $sh->setCellValue('A1', $wingdik);
+            $sh->getStyle('A1')->applyFromArray([
+                'font'=>['bold'=>true,'size'=>16],
+                'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+            ]);
+            $sh->mergeCells("A2:{$lastCol}2");
+            $sh->setCellValue('A2', $skadikNama);
+            $sh->getStyle('A2')->applyFromArray([
+                'font'=>['bold'=>true,'size'=>13],
+                'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+            ]);
+            if ($lemdikNama && $lemdikNama !== $skadikNama) {
+                $sh->mergeCells("A3:{$lastCol}3");
+                $sh->setCellValue('A3', $lemdikNama);
+                $sh->getStyle('A3')->applyFromArray([
+                    'font'=>['bold'=>true,'size'=>11],
+                    'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+                ]);
+            }
+
+            // ── Judul rekap + info angkatan & bobot ──
+            $rTitle = 4;
+            $sh->mergeCells("A{$rTitle}:{$lastCol}{$rTitle}");
+            $sh->setCellValue("A{$rTitle}", 'REKAP NILAI PRESTASI PENDIDIKAN (NPP)');
+            $sh->getStyle("A{$rTitle}")->applyFromArray([
+                'font'=>['bold'=>true,'size'=>12,'underline'=>true],
+                'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+            ]);
+
+            $sub = '';
+            if ($angkatan?->jurusan) $sub .= strtoupper($angkatan->jurusan) . ' — ';
+            $sub .= 'Angkatan ' . $angkatan?->nomor_angkatan . ' Tahun ' . $angkatan?->tahun_masuk;
+            $sh->mergeCells("A5:{$lastCol}5");
+            $sh->setCellValue('A5', $sub);
+            $sh->getStyle('A5')->applyFromArray([
+                'font'=>['size'=>11],
+                'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+            ]);
+
+            $bA = $first->bobot_akademik ?? NppCalculator::BOBOT_AKADEMIK_DEFAULT;
+            $bK = $first->bobot_kepribadian ?? NppCalculator::BOBOT_KEPRIBADIAN_DEFAULT;
+            $bS = $first->bobot_samapta ?? NppCalculator::BOBOT_SAMAPTA_DEFAULT;
+            $sh->mergeCells("A6:{$lastCol}6");
+            $sh->setCellValue('A6', "Bobot: Akademik {$bA}% · Kepribadian {$bK}% · Samapta {$bS}%");
+            $sh->getStyle('A6')->applyFromArray([
+                'font'=>['size'=>10,'italic'=>true,'color'=>['rgb'=>'000000']],
+                'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+            ]);
+
+            // Info penandatangan (kiri = Danskadik, kanan = Kompilasi — spt PDF)
+            $sh->mergeCells("A7:{$lastCol}7");
+            $this->infoPenandatanganExcel($sh, 'A7', 'kompilasi', $angkatan?->skadik_id, 9);
+
+            // ── Header 2 baris (spt tabel PDF) ──
+            $styleHead = [
+                'font'=>['bold'=>true],
+                'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'FFFFFF']],
+                'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER,'vertical'=>Alignment::VERTICAL_CENTER,'wrapText'=>true],
+                'borders'=>['allBorders'=>['borderStyle'=>Border::BORDER_THIN]],
+            ];
+            foreach (['A'=>'Rank','B'=>'Nama','C'=>'Pangkat','D'=>'NRP','H'=>'NPP','I'=>'Predikat','J'=>'Keterangan'] as $c => $h) {
+                $sh->mergeCells("{$c}8:{$c}9");
+                $sh->setCellValue("{$c}8", $h);
+            }
+            $sh->mergeCells('E8:G8');
+            $sh->setCellValue('E8', 'Komponen Nilai');
+            $sh->setCellValue('E9', 'Akademik');
+            $sh->setCellValue('F9', 'Kepribadian');
+            $sh->setCellValue('G9', 'Samapta');
+            $sh->getStyle("A8:{$lastCol}9")->applyFromArray($styleHead);
+
+            // Lebar kolom
+            foreach (['A'=>8,'B'=>32,'C'=>12,'D'=>14,'E'=>13,'F'=>14,'G'=>12,'H'=>10,'I'=>14,'J'=>16] as $c => $w) {
+                $sh->getColumnDimension($c)->setWidth($w);
+            }
+
+            // ── Data (live) ──
+            $ket = fn($n) => $n >= 85 ? 'Sangat Baik' : ($n >= 75 ? 'Baik' : ($n >= 65 ? 'Cukup' : ($n >= 55 ? 'Kurang' : 'Sangat Kurang')));
+            $totalNPP = 0; $countNPP = 0;
+            foreach ($data as $i => $d) {
+                $r = $i + 10;
+                $npp = $d->nilai_akhir ?? 0;
+                $totalNPP += $npp;
+                if ($npp > 0) $countNPP++;
+
+                $sh->setCellValue("A{$r}", $d->rank);
+                $sh->setCellValue("B{$r}", $d->peserta->nama);
+                $sh->setCellValue("C{$r}", $d->peserta->pangkat);
+                ExportFile::setText($sh, "D{$r}", $d->peserta->nrp);
+                $sh->setCellValue("E{$r}", $d->nilai_akademik);
+                $sh->setCellValue("F{$r}", $d->nilai_kepribadian);
+                $sh->setCellValue("G{$r}", $d->nilai_samapta);
+                $sh->setCellValue("H{$r}", $d->nilai_akhir);
+                $sh->setCellValue("I{$r}", $d->predikat_huruf . ' (' . $d->predikat_angka . ')');
+                $sh->setCellValue("J{$r}", $ket($npp));
+
+                $sh->getStyle("A{$r}:{$lastCol}{$r}")->applyFromArray([
+                    'borders'=>['allBorders'=>['borderStyle'=>Border::BORDER_THIN]],
+                    'alignment'=>['vertical'=>Alignment::VERTICAL_CENTER],
+                ]);
+                foreach (['A','E','F','G','H','I','J'] as $cc) {
+                    $sh->getStyle("{$cc}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
+                $sh->getStyle("H{$r}")->getFont()->setBold(true);
+            }
+
+            // ── Footer "Rata-rata Angkatan" (spt PDF) ──
+            if ($countNPP > 0) {
+                $r = $data->count() + 10;
+                $sh->mergeCells("A{$r}:G{$r}");
+                $sh->setCellValue("A{$r}", 'Rata-rata Angkatan');
+                $sh->getStyle("A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sh->setCellValue("H{$r}", round($totalNPP / $countNPP, 2));
+                $sh->getStyle("H{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sh->getStyle("A{$r}:{$lastCol}{$r}")->applyFromArray([
+                    'font'=>['bold'=>true],
+                    'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'FFFFFF']],
+                    'borders'=>['allBorders'=>['borderStyle'=>Border::BORDER_THIN]],
+                ]);
+            }
+
+            $writer = new Xlsx($spreadsheet);
+            return response()->streamDownload(fn() => $writer->save('php://output'), ExportFile::name($angkatan, 'Report NPP'));
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal mengekspor NPP: ' . $e->getMessage());
         }
     }
 }

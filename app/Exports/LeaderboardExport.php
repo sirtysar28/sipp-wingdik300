@@ -2,18 +2,32 @@
 namespace App\Exports;
 
 use App\Models\{PesertaDidik, PeriodeNilai, Angkatan};
+use App\Services\ExportFile;
 use Maatwebsite\Excel\Concerns\{
     FromCollection, WithHeadings, WithStyles,
-    WithTitle, WithMapping, ShouldAutoSize, WithEvents
+    WithTitle, WithMapping, ShouldAutoSize, WithEvents,
+    WithCustomValueBinder
 };
 use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\Cell\StringValueBinder;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\{Fill, Border, Alignment};
 
 class LeaderboardExport implements
     FromCollection, WithHeadings, WithStyles,
-    WithTitle, WithMapping, ShouldAutoSize, WithEvents
+    WithTitle, WithMapping, ShouldAutoSize, WithEvents,
+    WithCustomValueBinder
 {
+    /** Binder teks: NRP 16 digit & Nosis "001" tampil penuh (bukan angka/ilmiah) */
+    private static ?StringValueBinder $textBinder = null;
+
+    public function bindValue(Cell $cell, $value)
+    {
+        self::$textBinder ??= (new StringValueBinder())->setNumericConversion(false); // false = angka asli tetap numerik, STRING (NRP/Nosis) tetap teks
+
+        return self::$textBinder->bindValue($cell, $value);
+    }
     protected $angkatanId;
     protected $periodeId;
     protected $angkatan;
@@ -78,28 +92,25 @@ class LeaderboardExport implements
 
     public function styles(Worksheet $sheet)
     {
+        // Font default ARIAL untuk seluruh sheet (revisi 21 Sept 2026)
+        ExportFile::plain($sheet->getParent());
+
         $lastRow = $sheet->getHighestRow();
 
         $sheet->getStyle('A1:J1')->applyFromArray([
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'font' => ['bold' => true, 'color' => ['rgb' => '000000'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
         ]);
 
         if ($lastRow > 1) {
-            // Top 3 highlight
-            $colors = ['2' => 'FEF3C7', '3' => 'DBEAFE', '4' => 'D1FAE5'];
-            foreach ($colors as $row => $color) {
-                if ($row <= $lastRow) {
-                    $sheet->getStyle("A{$row}:J{$row}")->applyFromArray([
-                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $color]],
-                        'font' => ['bold' => true],
-                    ]);
-                }
+            // Top 3 — teks tebal, tanpa warna (tabel polos hitam-putih)
+            if ($lastRow >= 4) {
+                $sheet->getStyle('A2:J4')->getFont()->setBold(true);
             }
 
             $sheet->getStyle("A2:J{$lastRow}")->applyFromArray([
-                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                 'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
             ]);
 
@@ -126,7 +137,7 @@ class LeaderboardExport implements
                 $sheet->setCellValue("A" . ($lastRow + 1), "Periode: {$periode?->label}");
                 $sheet->setCellValue("A" . ($lastRow + 2), "Dicetak: " . now()->format('d/m/Y H:i'));
                 $sheet->getStyle("A{$lastRow}:A" . ($lastRow + 2))->applyFromArray([
-                    'font' => ['italic' => true, 'color' => ['rgb' => '6B7280'], 'size' => 10],
+                    'font' => ['italic' => true, 'color' => ['rgb' => '000000'], 'size' => 10],
                 ]);
             },
         ];

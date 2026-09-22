@@ -48,8 +48,8 @@
         <tr>
           <th>No</th>
           <th>Nama</th>
-          <th>NRP</th>
           <th>Pangkat</th>
+          <th>NRP</th>
           <th>Nosis</th>
           <th>Status</th>
           <th>Aksi</th>
@@ -67,8 +67,8 @@
               <span class="badge badge-red" style="margin-left:6px">Nonaktif</span>
             @endif
           </td>
-          <td style="color:#888">{{ $p->nrp }}</td>
           <td><span class="badge badge-blue">{{ $p->pangkat }}</span></td>
+          <td style="color:#888">{{ $p->nrp }}</td>
           <td>{{ $p->nosis }}</td>
           <td>
             <span class="badge {{ $p->aktif ? 'badge-green' : 'badge-red' }}">

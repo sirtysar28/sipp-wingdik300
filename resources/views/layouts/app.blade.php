@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a2e;min-height:100vh}
+body{font-family:Arial,Helvetica,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a2e;min-height:100vh}
 a{color:inherit;text-decoration:none}
 
 /* --- SIDEBAR RESPONSIVE --- */
@@ -339,6 +339,12 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#4f46e5;box-sh
   <div class="content">
     @if(session('success'))
       <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    @if(session('info'))
+      <div class="alert" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8">{{ session('info') }}</div>
+    @endif
+    @if(session('error'))
+      <div class="alert alert-error">{{ session('error') }}</div>
     @endif
     @if($errors->any())
       <div class="alert alert-error">{{ $errors->first() }}</div>

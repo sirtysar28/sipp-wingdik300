@@ -68,7 +68,7 @@
         @if($nk)
           <span style="font-weight:600;color:{{ $per->id==$periodeId?'#4f46e5':'#059669' }}">{{ $nk->nilai_akhir }}</span>
         @else
-          <span style="color:#ddd;font-size:11px">—</span>
+          <span style="color:#999;font-size:11px">—</span>
         @endif
       </a>
       @endforeach

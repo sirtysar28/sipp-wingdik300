@@ -137,11 +137,12 @@
         <tr>
           <th>Rank</th>
           <th>Nama</th>
+          <th>Pangkat</th>
           <th>NRP</th>
           @foreach($periodes as $per)
             <th style="text-align:center;min-width:80px">{{ $per->label }}</th>
           @endforeach
-          <th style="text-align:center;background:#f0f0ff;min-width:80px">Rata-rata</th>
+          <th style="text-align:center;background:#ffffff;min-width:80px">Rata-rata</th>
           <th>Aksi</th>
         </tr>
       </thead>
@@ -150,6 +151,7 @@
         <tr>
           <td style="text-align:center;font-weight:600">{{ $i + 1 }}</td>
           <td><strong>{{ $row['peserta']->nama }}</strong></td>
+          <td>{{ $row['peserta']->pangkat }}</td>
           <td style="font-size:12px;color:#888">{{ $row['peserta']->nrp }}</td>
           @foreach($periodes as $per)
             @php $n = $row['nilai_per_periode'][$per->id]['nilai'] ?? null; @endphp
@@ -161,11 +163,11 @@
                 @endphp
                 <span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:500;background:{{ $bg }};color:{{ $color }}">{{ round($n,2) }}</span>
               @else
-                <span style="color:#ddd">—</span>
+                <span style="color:#999">—</span>
               @endif
             </td>
           @endforeach
-          <td style="text-align:center;background:#f0f0ff">
+          <td style="text-align:center;background:#ffffff">
             <strong style="font-size:14px;color:#2563eb">{{ $row['rata_rata'] ?? '—' }}</strong>
           </td>
           <td>
@@ -176,7 +178,7 @@
       </tbody>
       @if($data->count() > 1)
       <tfoot>
-        <tr style="background:#f0f0ff">
+        <tr style="background:#ffffff">
           <td colspan="3" style="font-weight:600;font-size:12px;color:#2563eb">Rata-rata Angkatan</td>
           @foreach($periodes as $per)
             @php

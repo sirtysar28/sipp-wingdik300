@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Angkatan, PesertaDidik, KompilasiNilai, NilaiAkademik, NilaiKepribadian, NilaiSamapta, Skadik};
 use App\Services\NppCalculator;
+use App\Services\ExportFile;
 use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx as XlsxWriter;
@@ -72,6 +73,7 @@ class LeaderboardController extends Controller
         }
 
         $spreadsheet = new Spreadsheet();
+        ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
         $sheet = $spreadsheet->getActiveSheet()->setTitle('Leaderboard NPP');
 
         // Header institusi
@@ -95,10 +97,10 @@ class LeaderboardController extends Controller
         foreach ($cols as $col => $label) {
             $sheet->setCellValue("{$col}6", $label);
             $sheet->getStyle("{$col}6")->applyFromArray([
-                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
-                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+                'font' => ['bold' => true, 'color' => ['rgb' => '000000'], 'size' => 10],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
             ]);
         }
 
@@ -120,17 +122,16 @@ class LeaderboardController extends Controller
             $sheet->setCellValue("A{$row}", $rank);
             $sheet->setCellValue("B{$row}", $k->peserta->nama);
             $sheet->setCellValue("C{$row}", $k->peserta->pangkat);
-            $sheet->setCellValue("D{$row}", $k->peserta->nrp);
+            ExportFile::setText($sheet, "D{$row}", $k->peserta->nrp);
             $sheet->setCellValue("E{$row}", $k->nilai_akademik_fix);
             $sheet->setCellValue("F{$row}", $k->nilai_kepribadian_fix);
             $sheet->setCellValue("G{$row}", $k->nilai_samapta_fix);
             $sheet->setCellValue("H{$row}", $k->npp_fix);
             $sheet->setCellValue("I{$row}", $rank);
 
-            $bgRow = $i%2===0 ? 'FFFFFF' : 'F9FAFB';
             $sheet->getStyle("A{$row}:I{$row}")->applyFromArray([
-                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $bgRow]],
-                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                 'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
             ]);
             $sheet->getStyle("A{$row}:F{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -138,21 +139,16 @@ class LeaderboardController extends Controller
             $sheet->getStyle("H{$row}")->applyFromArray(['font' => ['bold' => true], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]]);
             $sheet->getStyle("I{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-            // Highlight top 3
-            if ($rank === 1) {
-                $sheet->getStyle("H{$row}")->getFont()->getColor()->setRGB('059669');
-                $sheet->getStyle("A{$row}:I{$row}")->getFill()->getStartColor()->setRGB('FEF3C7');
-            } elseif ($rank === 2) {
-                $sheet->getStyle("A{$row}:I{$row}")->getFill()->getStartColor()->setRGB('F3F4F6');
-            } elseif ($rank === 3) {
-                $sheet->getStyle("A{$row}:I{$row}")->getFill()->getStartColor()->setRGB('FEF9C3');
+            // Highlight top 3 — teks tebal saja (tabel polos hitam-putih)
+            if ($rank <= 3) {
+                $sheet->getStyle("A{$row}:I{$row}")->getFont()->setBold(true);
+                $sheet->getStyle("H{$row}")->getFont()->getColor()->setRGB(ExportFile::TEXT_BLACK);
             }
 
             $sheet->getRowDimension($row)->setRowHeight(18);
         }
 
-        $filename = preg_replace('/[^A-Za-z0-9_\-.]/', '_',
-            "leaderboard_NPP_{$angkatan?->nomor_angkatan}.xlsx");
+        $filename = ExportFile::name($angkatan, 'Leaderboard NPP');
 
         $writer = new XlsxWriter($spreadsheet);
         return response()->streamDownload(function () use ($writer) { $writer->save('php://output'); },

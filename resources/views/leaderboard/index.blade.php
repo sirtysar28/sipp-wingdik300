@@ -128,7 +128,7 @@
 
       @if($paginated->count() > 0 && $page===1)
       <tfoot>
-        <tr style="background:#f0f0ff">
+        <tr style="background:#ffffff">
           <td colspan="4" style="padding:8px 10px;font-weight:600;font-size:12px;color:#4f46e5;border:1px solid #e5e7eb">
             Rata-rata Angkatan
           </td>

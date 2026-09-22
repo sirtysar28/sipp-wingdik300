@@ -153,7 +153,7 @@
           @foreach($periodeRange as $per)
             <th style="text-align:center;min-width:80px">{{ $per->label }}</th>
           @endforeach
-          <th style="text-align:center;background:#f0f0ff;min-width:80px">Rata-rata</th>
+          <th style="text-align:center;background:#ffffff;min-width:80px">Rata-rata</th>
           <th style="text-align:center;min-width:60px">Tren</th>
           <th style="min-width:80px">Aksi</th>
         </tr>
@@ -195,11 +195,11 @@
                 {{ $val }}
               </span>
             @else
-              <span style="color:#ddd;font-size:12px">—</span>
+              <span style="color:#999;font-size:12px">—</span>
             @endif
           </td>
           @endforeach
-          <td style="text-align:center;background:#f5f5ff">
+          <td style="text-align:center;background:#ffffff">
             <strong style="font-size:14px;color:#4f46e5">{{ $rata ?: '—' }}</strong>
           </td>
           <td style="text-align:center">
@@ -224,7 +224,7 @@
       {{-- Footer rata-rata angkatan --}}
       @if($tabelData->count() > 1)
       <tfoot>
-        <tr style="background:#f0f0ff">
+        <tr style="background:#ffffff">
           <td colspan="2" style="font-weight:600;font-size:12px;color:#4f46e5">Rata-rata angkatan</td>
           @foreach($periodeRange as $per)
           @php

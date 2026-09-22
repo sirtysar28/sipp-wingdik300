@@ -96,15 +96,15 @@
     </div>
     <div class="metric-card">
       <div class="metric-label">Rata-rata NPS</div>
-      <div class="metric-value" style="color:#059669">{{ round($data->avg('nilai_akhir'), 2) }}</div>
+      <div class="metric-value" style="color:#059669">{{ round($data->avg('nilai_konversi') ?? 0, 2) }}</div>
     </div>
     <div class="metric-card">
       <div class="metric-label">Tertinggi</div>
-      <div class="metric-value" style="color:#4f46e5">{{ round($data->max('nilai_akhir'), 2) }}</div>
+      <div class="metric-value" style="color:#4f46e5">{{ round($data->max('nilai_konversi') ?? 0, 2) }}</div>
     </div>
     <div class="metric-card">
       <div class="metric-label">Terendah</div>
-      <div class="metric-value" style="color:#dc2626">{{ round($data->min('nilai_akhir'), 2) }}</div>
+      <div class="metric-value" style="color:#dc2626">{{ round($data->min('nilai_konversi') ?? 0, 2) }}</div>
     </div>
   </div>
 
@@ -113,16 +113,17 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr style="background:#1e293b;color:#fff">
+          <tr style="background:#ffffff;color:#000">
             <th>No</th>
-            <th>NRP</th>
             <th>Nama</th>
             <th>Pangkat</th>
+            <th>NRP</th>
             <th>Jarak Lari (m)</th>
             <th>Nilai Lari (Garjas A)</th>
             <th>Garjas B</th>
             <th>Nilai Akhir</th>
-            <th>Nilai Konversi</th>
+            <th>Nilai Konversi (NPS)</th>
+            <th>Kategori</th>
             <th>Aksi</th>
           </tr>
         </thead>
@@ -130,19 +131,26 @@
           @foreach($data as $idx => $d)
           <tr>
             <td style="text-align:center;color:#888">{{ $idx + 1 }}</td>
-            <td style="font-family:monospace;font-size:12px">{{ $d->peserta->nrp }}</td>
             <td><strong>{{ $d->peserta->nama }}</strong></td>
             <td>{{ $d->peserta->pangkat }}</td>
+            <td style="font-family:Arial,Helvetica,sans-serif;font-size:12px">{{ $d->peserta->nrp }}</td>
             <td style="text-align:center">{{ $d->jarak_lari ?? '-' }}</td>
             <td style="text-align:center;font-weight:600">{{ $d->nilai_lari ?? '-' }}</td>
             <td style="text-align:center;font-weight:600">{{ $d->garjas_b_nilai ?? '-' }}</td>
-            <td style="text-align:center;background:#f5f3ff">
+            <td style="text-align:center;background:#ffffff">
               <span style="font-weight:700;font-size:15px">{{ $d->nilai_akhir ?? '-' }}</span>
             </td>
+            {{-- Urutan hasil NPS: jarak lari → nilai lari (Garjas A) → Garjas B → nilai akhir → nilai konversi (NPS) → kategori --}}
             {{-- Revisi 26 Agustus 2026: kategori Baik/Cukup/Kurang berbasis NILAI KONVERSI --}}
             <td style="text-align:center">
               <span style="font-weight:700;font-size:14px;color:{{ $d->predikat['color'] }}">{{ $d->nilai_konversi ?? '-' }}</span>
-              <div style="font-size:9px;font-weight:600;color:{{ $d->predikat['color'] }}">{{ $d->nilai_konversi !== null ? $d->predikat['label'] : '-' }}</div>
+            </td>
+            <td style="text-align:center">
+              @if($d->nilai_konversi !== null)
+                <span style="font-size:11px;font-weight:700;color:{{ $d->predikat['color'] }}">{{ $d->predikat['icon'] }} {{ $d->predikat['label'] }}</span>
+              @else
+                <span style="color:#888">-</span>
+              @endif
             </td>
             <td>
               <a href="{{ route('nilai-samapta.edit', ['angkatan_id' => $angkatanId, 'peserta_id' => $d->peserta_didik_id, 'putaran_label' => $putaranLabel]) }}" class="btn btn-sm btn-outline" title="Edit">✏️</a>

@@ -6,7 +6,7 @@
 <style>
   @page { size: landscape; margin: 15mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Times New Roman', serif; font-size: 11pt; color: #000; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #000; }
   .header { text-align: center; margin-bottom: 16px; border-bottom: 3px double #000; padding-bottom: 10px; }
   .header h1 { font-size: 14pt; font-weight: bold; letter-spacing: 2px; }
   .header h2 { font-size: 12pt; font-weight: bold; margin-top: 2px; }
@@ -16,12 +16,12 @@
 
   table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
   th, td { border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt; vertical-align: middle; }
-  th { background: #e0e0e0; font-weight: bold; }
+  th { background: #ffffff; font-weight: bold; }
   .text-left { text-align: left; }
   .text-right { text-align: right; }
   .bold { font-weight: bold; }
   .small { font-size: 7pt; }
-  .hn-col { background: #f0f0ff; }
+  .hn-col { background: #ffffff; }
 
   /* ── Blok Tanda Tangan (Revisi 8 September 2026) ──
      1) "Mengetahui," di atas jabatan Komandan Skadron Pendidikan.
@@ -40,13 +40,31 @@
 
   .footer-info { margin-top: 12px; font-size: 9pt; color: #555; display: flex; justify-content: space-between; }
 
+  /* ── Revisi 18 September 2026 (2): header mapel dibaca dari BAWAH ke ATAS
+     (dibalik dari vertical-rl biasa via rotate 180°). Detail JP/B/HN TIDAK
+     miring — sama-sama vertikal bawah→atas, sejajar DI BAWAH nama mapel. ── */
+  th.mp-col { width: 52px; padding: 4px 2px; vertical-align: bottom; }
+  th.mp-col .mp-nama {
+    display: inline-block;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);      /* dibalik: baca dari bawah ke atas */
+    font-size: 9pt; line-height: 1.2; white-space: nowrap;
+  }
+  th.mp-col .mp-detail {
+    display: block;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);      /* vertikal dari bawah ke atas */
+    white-space: nowrap;
+    margin-top: 3px;
+  }
+
   @media print { .no-print { display: none !important; } }
 </style>
 </head>
 <body>
 
 <div class="no-print" style="text-align:center;padding:10px;margin-bottom:10px;background:#f0f0f0">
-  <button onclick="window.print()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#059669;color:#fff;border:none;border-radius:6px">🖨️ Cetak Halaman</button>
+  <button onclick="window.print()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#555;color:#fff;border:none;border-radius:6px">🖨️ Cetak Halaman</button>
   <button onclick="window.close()" style="padding:8px 24px;font-size:13px;cursor:pointer;background:#888;color:#fff;border:none;border-radius:6px;margin-left:8px">Tutup</button>
 </div>
 
@@ -81,14 +99,17 @@
     <tr>
       <th rowspan="2" style="width:30px">No</th>
       <th rowspan="2" style="width:30px">Rank</th>
-      <th rowspan="2" class="text-left" style="width:80px">NRP</th>
-      <th rowspan="2" style="width:50px">Pangkat</th>
       <th rowspan="2" class="text-left" style="width:140px">Nama</th>
+      <th rowspan="2" style="width:50px">Pangkat</th>
+      <th rowspan="2" class="text-left" style="width:80px">NRP</th>
       @foreach($mataPelajaran as $mp)
-      <th style="width:55px">{{ $mp->nama }}<br><span class="small">JP={{ $mp->jp }}|B={{ $mp->bobot }}|HN={{ $mp->harga_nilai_calc }}</span></th>
+      <th class="mp-col">
+        <span class="mp-nama">{{ $mp->nama }}</span>
+        <span class="mp-detail small">JP={{ $mp->jp }}|B={{ $mp->bobot }}|HN={{ $mp->harga_nilai_calc }}</span>
+      </th>
       @endforeach
-      <th style="background:#d0d0ff">Σ(MP×HN)</th>
-      <th style="background:#d0ffd0;width:60px">NPA</th>
+      <th style="background:#ffffff">Σ(MP×HN)</th>
+      <th style="background:#ffffff;width:60px">NPA</th>
     </tr>
   </thead>
   <tbody>
@@ -102,9 +123,9 @@
     <tr>
       <td>{{ $i + 1 }}</td>
       <td class="bold">{{ $rank }}</td>
-      <td>{{ $d->peserta->nrp }}</td>
-      <td>{{ $d->peserta->pangkat }}</td>
       <td class="text-left">{{ $d->peserta->nama }}</td>
+      <td>{{ $d->peserta->pangkat }}</td>
+      <td>{{ $d->peserta->nrp }}</td>
       @foreach($mataPelajaran as $mpIdx => $mp)
       @php
         $valMP = $detailNilai[$mpIdx] ?? 0;
@@ -113,8 +134,8 @@
       @endphp
       <td>{{ $valMP ?: '-' }}</td>
       @endforeach
-      <td style="background:#f0f0ff" class="bold">{{ number_format(round($sumMPHN, 2), 2, ',', '.') }}</td>
-      <td class="bold" style="background:#f0fff0;font-size:10pt">{{ $d->npa }}</td>
+      <td style="background:#ffffff" class="bold">{{ number_format(round($sumMPHN, 2), 2, ',', '.') }}</td>
+      <td class="bold" style="background:#ffffff;font-size:10pt">{{ $d->npa }}</td>
     </tr>
     @endforeach
   </tbody>

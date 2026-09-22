@@ -126,7 +126,7 @@
           @endforeach
         </tbody>
         <tfoot>
-          <tr style="background:#f0f0ff;font-weight:600">
+          <tr style="background:#ffffff;font-weight:600">
             <td colspan="2" style="text-align:center">TOTAL</td>
             <td>{{ $subjek->count() }} Subjek</td>
             <td style="text-align:center">{{ $subjek->sum('jp') }}</td>

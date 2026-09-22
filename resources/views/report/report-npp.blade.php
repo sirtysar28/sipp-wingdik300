@@ -132,9 +132,9 @@
         <thead>
           <tr>
             <th style="text-align:center;width:50px">Rank</th>
-            <th>NRP</th>
-            <th>Pangkat</th>
             <th>Nama</th>
+            <th>Pangkat</th>
+            <th>NRP</th>
             <th style="text-align:right">N. Akademik<br><span style="font-weight:400;font-size:9px">({{ $data->first()->bobot_akademik ?? 70 }}%)</span></th>
             <th style="text-align:right">N. Kepribadian<br><span style="font-weight:400;font-size:9px">({{ $data->first()->bobot_kepribadian ?? 20 }}%)</span></th>
             <th style="text-align:right">N. Samapta<br><span style="font-weight:400;font-size:9px">({{ $data->first()->bobot_samapta ?? 10 }}%)</span></th>
@@ -146,18 +146,16 @@
         <tbody>
           @foreach($data as $d)
             @php
+              // Tabel polos — tanpa warna rank (revisi 21 Sept 2026)
               $bgRow = '';
-              if($d->rank === 1) $bgRow = 'background:#fef3c7;';
-              elseif($d->rank === 2) $bgRow = 'background:#f3f4f6;';
-              elseif($d->rank === 3) $bgRow = 'background:#fef9c3;';
             @endphp
             <tr style="{{ $bgRow }}">
               <td style="text-align:center;font-weight:600">
                 @if($d->rank === 1) 🥇 @elseif($d->rank === 2) 🥈 @elseif($d->rank === 3) 🥉 @else {{ $d->rank }} @endif
               </td>
-              <td>{{ $d->peserta->nrp }}</td>
-              <td>{{ $d->peserta->pangkat }}</td>
               <td><strong>{{ $d->peserta->nama }}</strong></td>
+              <td>{{ $d->peserta->pangkat }}</td>
+              <td>{{ $d->peserta->nrp }}</td>
               <td style="text-align:right">{{ $d->nilai_akademik }}</td>
               <td style="text-align:right">{{ $d->nilai_kepribadian }}</td>
               <td style="text-align:right">{{ $d->nilai_samapta }}</td>

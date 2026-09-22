@@ -7,7 +7,7 @@
 <title>Reset Password — SIPP - Sistem Informasi Penilaian Prestasi</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);min-height:100vh;display:flex;align-items:center;justify-content:center}
+body{font-family:Arial,Helvetica,sans-serif;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);min-height:100vh;display:flex;align-items:center;justify-content:center}
 .box{background:#fff;border:1px solid #e8e8ed;border-radius:16px;padding:36px 32px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
 .logo{text-align:center;margin-bottom:24px}
 .logo h1{font-size:24px;font-weight:700;color:#1a1a2e;letter-spacing:1px}

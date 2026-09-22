@@ -233,7 +233,7 @@
           </td>
         </tr>
         @endforeach
-        <tr style="background:#f0f0ff;font-weight:700">
+        <tr style="background:#ffffff;font-weight:700">
           <td colspan="3" style="text-align:center">TOTAL (aktif)</td>
           <td style="text-align:center">{{ $totalJP }}</td>
           <td style="text-align:center">{{ $totalBobot }}</td>

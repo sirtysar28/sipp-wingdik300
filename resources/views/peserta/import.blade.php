@@ -65,7 +65,7 @@
           Download template, lalu isi data peserta dari Angkatan yang baru.
         </div>
       </div>
-      <a href="{{ route('peserta.template') }}" class="btn btn-outline btn-sm" style="white-space:nowrap;flex-shrink:0">
+      <a href="{{ route('peserta.template', ['angkatan_id' => $angkatanId]) }}" class="btn btn-outline btn-sm" style="white-space:nowrap;flex-shrink:0">
         ⬇ Download Template
       </a>
     </div>

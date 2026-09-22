@@ -24,7 +24,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
   background: var(--bg);
   color: var(--ink);
   font-size: 15px;
@@ -46,7 +46,7 @@ body {
   width: 36px; height: 36px; object-fit: contain; flex-shrink: 0;
   border-radius: 8px;
 }
-.logo-text { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--ink); }
+.logo-text { font-family: Arial, Helvetica, sans-serif; font-size: 20px; color: var(--ink); }
 .sidebar-sub { font-size: 12px; color: var(--muted); }
 .sidebar-nav { flex: 1; padding: 16px 0; }
 .nav-section-label {
@@ -90,7 +90,7 @@ body {
   border-radius: 99px; padding: 4px 12px; font-size: 12px;
   font-weight: 500; margin-bottom: 20px; position: relative; z-index: 1;
 }
-.hero h1 { font-family: 'DM Serif Display', serif; font-size: 48px; line-height: 1.1; margin-bottom: 16px; position: relative; z-index: 1; }
+.hero h1 { font-family: Arial, Helvetica, sans-serif; font-size: 48px; line-height: 1.1; margin-bottom: 16px; position: relative; z-index: 1; }
 .hero p { font-size: 18px; opacity: .8; max-width: 640px; margin-bottom: 32px; position: relative; z-index: 1; }
 .role-cards { display: flex; gap: 12px; flex-wrap: wrap; position: relative; z-index: 1; }
 .role-card {
@@ -111,7 +111,7 @@ body {
   border-radius: 99px; padding: 3px 10px; font-size: 11px;
   font-weight: 600; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 10px;
 }
-.section h2 { font-family: 'DM Serif Display', serif; font-size: 32px; color: var(--ink); margin-bottom: 8px; line-height: 1.2; }
+.section h2 { font-family: Arial, Helvetica, sans-serif; font-size: 32px; color: var(--ink); margin-bottom: 8px; line-height: 1.2; }
 .section-lead { font-size: 16px; color: var(--muted); margin-bottom: 28px; max-width: 640px; }
 .divider { height: 1px; background: var(--line); margin: 48px 0; }
 
@@ -199,7 +199,7 @@ body {
   padding: 24px; text-align: center; margin: 20px 0;
 }
 .formula-box-label { font-size: 13px; opacity: .7; margin-bottom: 8px; }
-.formula-box-text { font-family: 'DM Serif Display', serif; font-size: 26px; }
+.formula-box-text { font-family: Arial, Helvetica, sans-serif; font-size: 26px; }
 .formula-box-note { font-size: 12px; opacity: .6; margin-top: 8px; }
 
 /* ── ACCORDION FAQ ── */
@@ -226,7 +226,7 @@ body {
 .search-wrap { padding: 12px 16px; border-bottom: 1px solid var(--line); }
 .search-input {
   width: 100%; padding: 7px 10px; border: 1px solid var(--line);
-  border-radius: 7px; font-size: 12px; font-family: 'DM Sans', sans-serif; outline: none;
+  border-radius: 7px; font-size: 12px; font-family: Arial, Helvetica, sans-serif; outline: none;
 }
 .search-input:focus { border-color: var(--indigo); }
 
@@ -1090,7 +1090,19 @@ body {
     <section class="section" id="penandatangan">
       <div class="section-badge">✍️ Penandatangan</div>
       <h2>Penandatangan</h2>
-      <p class="section-lead">Penandatangan adalah data pejabat yang menandatangani laporan resmi. Dikelola per jenis laporan dan per Sekolah. Hanya Super Admin dan Opsdik yang bisa mengakses.</p>
+      <p class="section-lead">Penandatangan adalah data pejabat yang menandatangani laporan resmi. Dikelola per jenis laporan dengan cakupan bertingkat: Sekolah, Skadron (Skadik 30x), atau Global. Hanya Super Admin dan Opsdik yang bisa mengakses.</p>
+
+      <div class="subsection">
+        <h3>Cakupan Berlaku</h3>
+        <table class="doc-table">
+          <thead><tr><th>Cakupan</th><th>Keterangan</th><th>Contoh Pemakaian</th></tr></thead>
+          <tbody>
+            <tr><td><strong>🏫 Sekolah Tertentu</strong></td><td>Hanya berlaku utk sekolah terpilih (paling spesifik, menimpa cakupan lain)</td><td>Kepala Sekolah / instruktur khusus satu sekolah</td></tr>
+            <tr><td><strong>🛩️ Skadron / Skadik 30x</strong></td><td>Satu baris berlaku utk SEMUA sekolah under skadron tsb — cukup 4 baris utk 4 danskadik (301–304)</td><td>Danskadik 301, 302, 303, 304</td></tr>
+            <tr><td><strong>🌍 Global (Semua Sekolah)</strong></td><td>Berlaku utk semua sekolah jika tidak ada yang lebih spesifik</td><td>Kasibinjas</td></tr>
+          </tbody>
+        </table>
+      </div>
 
       <div class="subsection">
         <h3>Jenis Penandatangan</h3>
@@ -1100,9 +1112,9 @@ body {
             <tr><td><strong>Umum</strong></td><td>Fallback untuk semua laporan jika jenis spesifik belum diatur</td></tr>
             <tr><td><strong>NPA (Akademik)</strong></td><td>Laporan NPA dan Cetak Laporan</td></tr>
             <tr><td><strong>NPK (Kepribadian)</strong></td><td>Laporan NPK dan Ekspor NPK</td></tr>
-            <tr><td><strong>NPS (Samapta)</strong></td><td>Laporan NPS dan Ekspor NPS</td></tr>
+            <tr><td><strong>NPS (Samapta)</strong></td><td>Laporan NPS, Cetak NPS dan Ekspor NPS</td></tr>
             <tr><td><strong>NPP (Kompilasi)</strong></td><td>Laporan NPP dan Cetak Laporan</td></tr>
-            <tr><td><strong>Danskadik</strong></td><td>Penandatangan kolom kiri NPP (Dan Skadik)</td></tr>
+            <tr><td><strong>Danskadik</strong></td><td>Penandatangan kolom kiri &quot;Mengetahui&quot; di SEMUA laporan — NPA, NPK, NPS, NPP (cetak &amp; ekspor) — bukan NPP saja</td></tr>
           </tbody>
         </table>
       </div>
@@ -1111,15 +1123,16 @@ body {
         <h3>Tambah Penandatangan</h3>
         <div class="steps">
           <div class="step"><div class="step-dot">1</div><div class="step-body"><h4>Klik menu Penandatangan di sidebar</h4></div></div>
-          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Isi Nama, NRP, Pangkat, Jabatan, Jenis, dan Sekolah</h4><p>Pilih jenis sesuai laporan. 1 kombinasi jenis + sekolah hanya boleh 1 yang aktif.</p></div></div>
-          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Klik Simpan</h4><p>Penandatangan otomatis muncul di laporan cetak &amp; ekspor Excel.</p></div></div>
+          <div class="step"><div class="step-dot">2</div><div class="step-body"><h4>Pilih Cakupan Berlaku (Sekolah / Skadron / Global)</h4><p>Utk Danskadik: pilih cakupan Skadron → 1 baris per skadron otomatis dipakai semua sekolah under skadron tsb.</p></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-body"><h4>Isi Nama, NRP, Pangkat, Jabatan, dan Jenis lalu Simpan</h4><p>Jika utk jenis &amp; cakupan sama sudah ada baris aktif, baris lama otomatis dinonaktifkan (riwayat tetap tersimpan).</p></div></div>
         </div>
+        <p style="font-size:13px;color:#666;margin-top:8px">Tombol <strong>📄 Duplikat</strong> pada tabel membuat salinan baris (nonaktif) — praktis utk membuat 4 baris danskadik atau pejabat baru tanpa input dari nol. Utk pergantian pejabat: <em>tambah baris baru</em> (lama jadi riwayat) atau <em>edit nama</em> di baris lama — dua-duanya didukung.</p>
       </div>
 
       <div class="info-box green">
         <span class="info-box-icon">💡</span>
         <div class="info-box-body">
-          <strong>Urutan fallback:</strong> Sistem mencari penandatangan spesifik (jenis + sekolah) → jenis global (tanpa sekolah) → umum per sekolah → umum global. Disarankan mengisi semua jenis agar laporan selalu bertanda tangan.
+          <strong>Urutan fallback:</strong> Sistem mencari penandatangan (jenis + sekolah) → (jenis + skadron/skadik 30x) → jenis global (semua sekolah, cth. Kasibinjas) → lalu cascade yang sama utk jenis Umum. Disarankan mengisi Danskadik per skadron + baris Global Kasibinjas agar laporan selalu bertanda tangan.
         </div>
       </div>
     </section>
@@ -1274,7 +1287,7 @@ body {
 
     <!-- FOOTER -->
     <div style="text-align:center;padding:48px 0 24px;color:var(--muted);font-size:13px">
-      <div style="font-family:'DM Serif Display',serif;font-size:24px;color:var(--ink);margin-bottom:8px">SIPP</div>
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:24px;color:var(--ink);margin-bottom:8px">SIPP</div>
       Sistem Informasi Penilaian Prestasi<br>
       Manual Book v3.1 — Agustus 2026
     </div>

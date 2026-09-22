@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{Angkatan, PesertaDidik, PeriodeNilai, NilaiKepribadian, AspekKepribadian, Skadik};
+use App\Services\ExportFile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -165,6 +166,7 @@ class RekapController extends Controller
 
         // ── Buat spreadsheet ──────────────────────────────────
         $spreadsheet = new Spreadsheet();
+        ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
         $spreadsheet->getProperties()
             ->setTitle("Rekap Nilai Kepribadian — {$angkatan?->nomor_angkatan}")
             ->setCreator('SisMonik');
@@ -181,8 +183,8 @@ class RekapController extends Controller
         $sh1->mergeCells("A1:{$colEnd}1");
         $sh1->setCellValue('A1', 'REKAP NILAI KEPRIBADIAN');
         $sh1->getStyle('A1')->applyFromArray([
-            'font'      => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'font'      => ['bold' => true, 'size' => 14, 'color' => ['rgb' => '000000']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
         ]);
         $sh1->getRowDimension(1)->setRowHeight(30);
@@ -199,7 +201,7 @@ class RekapController extends Controller
         $sh1->mergeCells("A2:{$colEnd}2");
         $sh1->setCellValue('A2', implode(' / ', $headerLines));
         $sh1->getStyle('A2')->applyFromArray([
-            'font'      => ['bold' => true, 'size' => 11, 'color' => ['rgb' => '1A1A2E']],
+            'font'      => ['bold' => true, 'size' => 11, 'color' => ['rgb' => '000000']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
         ]);
 
@@ -207,7 +209,7 @@ class RekapController extends Controller
         $sh1->mergeCells("A3:{$colEnd}3");
         $sh1->setCellValue('A3', "Angkatan {$angkatan?->nomor_angkatan} — Periode: {$periodeRange->first()?->label} s/d {$periodeRange->last()?->label} | Dicetak: " . now()->format('d/m/Y H:i'));
         $sh1->getStyle('A3')->applyFromArray([
-            'font'      => ['italic' => true, 'size' => 10, 'color' => ['rgb' => '6B7280']],
+            'font'      => ['italic' => true, 'size' => 10, 'color' => ['rgb' => '000000']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
         ]);
 
@@ -224,10 +226,10 @@ class RekapController extends Controller
         // No more rata-rata column
 
         $sh1->getStyle("A4:{$colEnd}4")->applyFromArray([
-            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
-            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '6366F1']],
+            'font'      => ['bold' => true, 'color' => ['rgb' => '000000'], 'size' => 11],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
+            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
         ]);
         $sh1->getRowDimension(4)->setRowHeight(20);
 
@@ -247,7 +249,7 @@ class RekapController extends Controller
             $nilaiArr = [];
 
             $sh1->setCellValue("A{$row}", $rank);
-            $sh1->setCellValue("B{$row}", $p->nrp);
+            ExportFile::setText($sh1, "B{$row}", $p->nrp);
             $sh1->setCellValue("C{$row}", $p->pangkat);
             $sh1->setCellValue("D{$row}", $p->nama);
 
@@ -259,11 +261,10 @@ class RekapController extends Controller
                 if ($val !== '') $nilaiArr[] = $val;
             }
 
-            // Style baris
-            $bgColor = $rank % 2 === 0 ? 'F9FAFB' : 'FFFFFF';
+            // Style baris — polos putih
             $sh1->getStyle("A{$row}:{$colEnd}{$row}")->applyFromArray([
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $bgColor]],
-                'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
+                'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                 'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
             ]);
             $sh1->getStyle("A{$row}:C{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -283,8 +284,8 @@ class RekapController extends Controller
         $sh2->mergeCells("A1:A3");
         $sh2->setCellValue('A1', 'Nama');
         $sh2->getStyle('A1')->applyFromArray([
-            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'font'      => ['bold' => true, 'color' => ['rgb' => '000000']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
         ]);
         $sh2->getColumnDimension('A')->setWidth(32);
@@ -298,8 +299,8 @@ class RekapController extends Controller
             $sh2->mergeCells("{$startCol}1:{$endCol}1");
             $sh2->setCellValue("{$startCol}1", $per->label);
             $sh2->getStyle("{$startCol}1")->applyFromArray([
-                'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '6366F1']],
+                'font'      => ['bold' => true, 'color' => ['rgb' => '000000']],
+                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
             ]);
 
@@ -308,8 +309,8 @@ class RekapController extends Controller
                 $c = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + $j);
                 $sh2->setCellValue("{$c}2", strtoupper($asp->nama));
                 $sh2->getStyle("{$c}2")->applyFromArray([
-                    'font'      => ['bold' => true, 'size' => 8, 'color' => ['rgb' => 'FFFFFF']],
-                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '818CF8']],
+                    'font'      => ['bold' => true, 'size' => 8, 'color' => ['rgb' => '000000']],
+                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'wrapText' => true],
                 ]);
                 $sh2->getColumnDimension($c)->setWidth(11);
@@ -332,23 +333,19 @@ class RekapController extends Controller
                     $c  = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + $j);
                     $kriteria = $detailMap->get($asp->id)?->kriteria ?? '';
                     $sh2->setCellValue("{$c}{$row}", $kriteria);
-                    $bg = match($kriteria) {
-                        'BS' => 'D1FAE5', 'B' => 'DBEAFE', 'C' => 'F9FAFB',
-                        'K'  => 'FEF3C7', 'KS'=> 'FEE2E2', default => 'FFFBEB',
-                    };
+                    // Kriteria — tabel polos: background putih, teks hitam
                     $sh2->getStyle("{$c}{$row}")->applyFromArray([
-                        'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $bg]],
+                        'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
                         'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                     ]);
                 }
                 $col += $nAspek;
             }
 
-            $bgColor = $pi % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
             $lastC   = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col - 1);
             $sh2->getStyle("A{$row}:{$lastC}{$row}")->applyFromArray([
-                'fill'    => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $bgColor]],
-                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                'fill'    => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
             ]);
         }
 
@@ -359,8 +356,8 @@ class RekapController extends Controller
         $colIdx = 0;
         $sh3->setCellValue("A1", 'Periode');
         $sh3->getStyle("A1")->applyFromArray([
-            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'font'      => ['bold' => true, 'color' => ['rgb' => '000000']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
         ]);
         $sh3->getColumnDimension('A')->setWidth(18);
@@ -369,8 +366,8 @@ class RekapController extends Controller
             $c = chr(66 + $j);
             $sh3->setCellValue("{$c}1", $asp->nama);
             $sh3->getStyle("{$c}1")->applyFromArray([
-                'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '6366F1']],
+                'font'      => ['bold' => true, 'color' => ['rgb' => '000000']],
+                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
             ]);
             $sh3->getColumnDimension($c)->setWidth(14);
@@ -378,8 +375,8 @@ class RekapController extends Controller
         $colTotal = chr(66 + $nAspek);
         $sh3->setCellValue("{$colTotal}1", 'Nilai Akhir');
         $sh3->getStyle("{$colTotal}1")->applyFromArray([
-            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4338CA']],
+            'font'      => ['bold' => true, 'color' => ['rgb' => '000000']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
         ]);
         $sh3->getColumnDimension($colTotal)->setWidth(14);
@@ -397,10 +394,9 @@ class RekapController extends Controller
             }
             $sh3->setCellValue("{$colTotal}{$row}", round($nilaiPer->avg('nilai_akhir') ?? 0, 2));
 
-            $bgColor = $i % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
             $sh3->getStyle("A{$row}:{$colTotal}{$row}")->applyFromArray([
-                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $bgColor]],
-                'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
+                'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
             ]);
         }
@@ -409,9 +405,10 @@ class RekapController extends Controller
 
         $spreadsheet->setActiveSheetIndex(0);
 
-        $skadikSlug = preg_replace('/[^A-Za-z0-9]/', '_', $angkatan?->skadik?->nama ?? 'skadik');
-        $filename = preg_replace('/[^A-Za-z0-9_\-.]/', '_',
-            "Rekap_NPK_{$skadikSlug}_Angkatan{$angkatan?->nomor_angkatan}_{$periodeRange->first()?->label}_sd_{$periodeRange->last()?->label}.xlsx"
+        $filename = ExportFile::name(
+            $angkatan,
+            'Rekap NPK',
+            ($periodeRange->first()?->label ?? '') . ' sd ' . ($periodeRange->last()?->label ?? '')
         );
 
         $writer = new XlsxWriter($spreadsheet);
