@@ -93,12 +93,23 @@
     </tr>
   </thead>
   <tbody>
-    @php $totalNPP = 0; $countNPP = 0; @endphp
+    @php
+      /* Revisi 22 Sept 2026: akumulasi per komponen (NPA/NPK/NPS) untuk footer
+         "Rata-rata Angkatan" — nilai 0 (belum dinilai) tidak ikut dihitung. */
+      $totalNPP = 0; $countNPP = 0;
+      $totalNPA = $cntNPA = $totalNPK = $cntNPK = $totalNPS = $cntNPS = 0;
+    @endphp
     @foreach($data as $d)
       @php
         $npp = $d->nilai_akhir ?? 0;
         $totalNPP += $npp;
         if ($npp > 0) $countNPP++;
+        $va = (float) ($d->nilai_akademik ?? 0);
+        if ($va > 0) { $totalNPA += $va; $cntNPA++; }
+        $vk = (float) ($d->nilai_kepribadian ?? 0);
+        if ($vk > 0) { $totalNPK += $vk; $cntNPK++; }
+        $vs = (float) ($d->nilai_samapta ?? 0);
+        if ($vs > 0) { $totalNPS += $vs; $cntNPS++; }
         $ket = $npp >= 85 ? 'Sangat Baik' : ($npp >= 75 ? 'Baik' : ($npp >= 65 ? 'Cukup' : ($npp >= 55 ? 'Kurang' : 'Sangat Kurang')));
         // Tabel polos — tanpa warna rank (revisi 21 Sept 2026)
         $bgRow = '';
@@ -119,7 +130,10 @@
 
     @if($countNPP > 0)
     <tr style="background:#ffffff;font-weight:bold">
-      <td colspan="7" class="text-left" style="text-align:right">Rata-rata Angkatan</td>
+      <td colspan="4" class="text-left" style="text-align:right">Rata-rata Angkatan</td>
+      <td>{{ $cntNPA > 0 ? number_format($totalNPA / $cntNPA, 2) : '-' }}</td>
+      <td>{{ $cntNPK > 0 ? number_format($totalNPK / $cntNPK, 2) : '-' }}</td>
+      <td>{{ $cntNPS > 0 ? number_format($totalNPS / $cntNPS, 2) : '-' }}</td>
       <td>{{ number_format($totalNPP / $countNPP, 2) }}</td>
       <td colspan="2"></td>
     </tr>

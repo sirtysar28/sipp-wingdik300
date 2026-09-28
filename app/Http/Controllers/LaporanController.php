@@ -163,7 +163,21 @@ class LaporanController extends Controller
         ]);
 
         $row = 6;
+        // Revisi 25 September 2026: akumulasi per komponen (NPA/NPK/NPS) untuk
+        // footer "Rata-rata Angkatan" — nilai 0 (belum dinilai) tidak dihitung.
+        $totalNPP = $countNPP = 0;
+        $sumKomponen = ['E' => 0, 'F' => 0, 'G' => 0];
+        $cntKomponen = ['E' => 0, 'F' => 0, 'G' => 0];
+        $fieldKomponen = ['E' => 'nilai_akademik', 'F' => 'nilai_kepribadian', 'G' => 'nilai_samapta'];
         foreach ($data as $d) {
+            $npp = $d->nilai_akhir ?? 0;
+            $totalNPP += $npp;
+            if ($npp > 0) $countNPP++;
+            foreach ($fieldKomponen as $cc => $f) {
+                $v = (float) ($d->{$f} ?? 0);
+                if ($v > 0) { $sumKomponen[$cc] += $v; $cntKomponen[$cc]++; }
+            }
+
             $sh->setCellValue("A{$row}", $d->rank);
             $sh->setCellValue("B{$row}", $d->peserta->nama);
             $sh->setCellValue("C{$row}", $d->peserta->pangkat);
@@ -185,6 +199,25 @@ class LaporanController extends Controller
             }
             $sh->getStyle("A{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sh->getStyle("E{$row}:J{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $row++;
+        }
+
+        // Footer "Rata-rata Angkatan" per komponen (NPA · NPK · NPS) + NPP
+        if ($countNPP > 0) {
+            $sh->mergeCells("A{$row}:D{$row}");
+            $sh->setCellValue("A{$row}", 'Rata-rata Angkatan');
+            $sh->getStyle("A{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            foreach (['E', 'F', 'G'] as $cc) {
+                $sh->setCellValue("{$cc}{$row}", $cntKomponen[$cc] > 0 ? round($sumKomponen[$cc] / $cntKomponen[$cc], 2) : '-');
+                $sh->getStyle("{$cc}{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            }
+            $sh->setCellValue("H{$row}", round($totalNPP / $countNPP, 2));
+            $sh->getStyle("H{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sh->getStyle("A{$row}:K{$row}")->applyFromArray([
+                'font' => ['bold' => true],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => ExportFile::BG_PLAIN]],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+            ]);
             $row++;
         }
 

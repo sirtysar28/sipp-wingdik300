@@ -79,7 +79,12 @@ class ReportController extends Controller
                         'peserta' => $p, 'peserta_didik_id' => $p->id,
                         'npa' => null, 'jumlah_nilai' => null, 'detail_nilai' => [],
                     ];
-                })->sortByDesc(fn($d) => $d->npa ?? -1)->values();
+                })
+                // Revisi 25 September 2026 — NPA sama → tie-breaker JUMLAH
+                // NILAI lebih tinggi diperingkat lebih atas (bukan abjad).
+                ->sortByDesc(fn($d) => $d->jumlah_nilai ?? -1)
+                ->sortByDesc(fn($d) => $d->npa ?? -1)
+                ->values();
             }
 
             // Autoload mata pelajaran from mata_pelajaran table per sekolah (via pivot)
@@ -300,6 +305,13 @@ class ReportController extends Controller
             $data = NppCalculator::forAngkatan($angkatanId); // SEMUA peserta (bulk), dihitung live
 
             $totalPeserta = PesertaDidik::where('angkatan_id', $angkatanId)->count();
+
+            // Revisi 22 Sept 2026: rata-rata angkatan PER KOMPONEN (NPA/NPK/NPS)
+            // — hanya peserta yang punya nilai (0 = belum dinilai, tidak ikut
+            // dihitung), selaras dengan footer "Rata-rata Angkatan" di report
+            // NPA/NPK/NPS.
+            $avgKomponen = fn(string $field) => round($data->filter(fn($d) => ($d->{$field} ?? 0) > 0)->avg($field) ?? 0, 2);
+
             $stats = [
                 'total_peserta'   => $totalPeserta,
                 'sudah_kompilasi' => $data->count(),
@@ -311,6 +323,9 @@ class ReportController extends Controller
                 'belum_kepribadian' => PesertaDidik::where('angkatan_id', $angkatanId)
                     ->whereDoesntHave('nilaiKepribadian')->count(),
                 'rata_akhir' => $data->count() > 0 ? round($data->avg('nilai_akhir'), 2) : 0,
+                'rata_npa'   => $avgKomponen('nilai_akademik'),
+                'rata_npk'   => $avgKomponen('nilai_kepribadian'),
+                'rata_nps'   => $avgKomponen('nilai_samapta'),
                 'tertinggi'  => $data->max('nilai_akhir') ?? 0,
                 'terendah'   => $data->min('nilai_akhir') ?? 0,
             ];
@@ -388,7 +403,12 @@ class ReportController extends Controller
                     'peserta' => $p, 'peserta_didik_id' => $p->id,
                     'npa' => null, 'jumlah_nilai' => null, 'detail_nilai' => [],
                 ];
-            })->sortByDesc(fn($d) => $d->npa ?? -1)->values();
+            })
+            // Revisi 25 September 2026 — NPA sama → tie-breaker JUMLAH NILAI
+            // desc (identik preview/cetak agar rank Excel = rank preview).
+            ->sortByDesc(fn($d) => $d->jumlah_nilai ?? -1)
+            ->sortByDesc(fn($d) => $d->npa ?? -1)
+            ->values();
 
             $totalHN = $mataPelajaran->sum(fn($mp) => $mp->harga_nilai_calc);
             $maxLenNama = $mataPelajaran->max(fn($mp) => mb_strlen($mp->nama)) ?? 0;
@@ -479,10 +499,17 @@ class ReportController extends Controller
             }
 
             // ── Data per peserta ──
+            // Revisi 25 September 2026: akumulasi utk footer "Rata-rata Angkatan"
+            // — per mapel & NPA (nilai 0 / null tidak dihitung), konsisten dgn
+            // ekspor NPK & NPS.
+            $sumMapel = [];
+            $cntMapel = [];
+            $totalNPA = $cntNPA = 0;
             foreach ($data as $i => $d) {
                 $r = $i + 6;
                 $detailNilai = is_array($d->detail_nilai) ? $d->detail_nilai : (json_decode($d->detail_nilai ?? '[]', true) ?: []);
                 $sumMPHN = 0;
+                if ($d->npa !== null) { $totalNPA += (float) $d->npa; $cntNPA++; }
                 $sh->setCellValue("A{$r}", $i + 1);
                 $sh->setCellValue("B{$r}", $i + 1);
                 $sh->setCellValue("C{$r}", $d->peserta->nama);
@@ -492,6 +519,10 @@ class ReportController extends Controller
                     $c = $colName(6 + $mpIdx);
                     $valMP = $detailNilai[$mpIdx] ?? 0;
                     $sumMPHN += $valMP * $mp->harga_nilai_calc;
+                    if (((float) $valMP) > 0) {
+                        $sumMapel[$mpIdx] = ($sumMapel[$mpIdx] ?? 0) + (float) $valMP;
+                        $cntMapel[$mpIdx] = ($cntMapel[$mpIdx] ?? 0) + 1;
+                    }
                     $sh->setCellValue("{$c}{$r}", ((float) $valMP) > 0 ? $valMP : '-');
                     $sh->getStyle("{$c}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 }
@@ -513,6 +544,32 @@ class ReportController extends Controller
                 }
             }
 
+            // ── Footer "Rata-rata Angkatan" (spt ekspor NPK & NPS) ──
+            if ($cntNPA > 0) {
+                $r = $data->count() + 6;
+                $sh->mergeCells("A{$r}:E{$r}");
+                $sh->setCellValue("A{$r}", 'Rata-rata Angkatan');
+                $sh->getStyle("A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                foreach ($mataPelajaran as $mpIdx => $mp) {
+                    $c = $colName(6 + $mpIdx);
+                    $avg = ($cntMapel[$mpIdx] ?? 0) > 0 ? round($sumMapel[$mpIdx] / $cntMapel[$mpIdx], 2) : '-';
+                    $sh->setCellValue("{$c}{$r}", $avg);
+                    $sh->getStyle("{$c}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
+                if ($nMapel > 0) {
+                    $sh->setCellValue("{$colSum}{$r}", '');
+                    $sh->setCellValue("{$colNpa}{$r}", round($totalNPA / $cntNPA, 2));
+                    $sh->getStyle("{$colNpa}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                } else {
+                    $sh->setCellValue("G{$r}", round($totalNPA / $cntNPA, 2));
+                    $sh->getStyle("G{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
+                $sh->getStyle("A{$r}:{$lastCol}{$r}")->applyFromArray([
+                    'font'=>['bold'=>true],
+                    'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
+                ]);
+            }
+
             $writer = new Xlsx($spreadsheet);
             return response()->streamDownload(fn() => $writer->save('php://output'), ExportFile::name($angkatan, 'Report NPA'));
         } catch (\Throwable $e) {
@@ -526,7 +583,9 @@ class ReportController extends Controller
         try {
             $angkatanId = $request->get('angkatan_id');
             $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
-            $data = NilaiAkademik::with('peserta')->where('angkatan_id', $angkatanId)->orderBy('npa', 'desc')->get();
+            // Revisi 25 September 2026: NPA sama → tie-breaker JUMLAH NILAI desc
+            $data = NilaiAkademik::with('peserta')->where('angkatan_id', $angkatanId)
+                ->orderByDesc('npa')->orderByDesc('jumlah_nilai')->get();
 
             $mataPelajaran = collect();
             if ($angkatan && $angkatan->skadik_id) {
@@ -1013,11 +1072,21 @@ class ReportController extends Controller
             // ── Data (live) ──
             $ket = fn($n) => $n >= 85 ? 'Sangat Baik' : ($n >= 75 ? 'Baik' : ($n >= 65 ? 'Cukup' : ($n >= 55 ? 'Kurang' : 'Sangat Kurang')));
             $totalNPP = 0; $countNPP = 0;
+            // Revisi 22 Sept 2026: akumulasi per komponen (NPA/NPK/NPS) untuk
+            // footer "Rata-rata Angkatan" — hanya nilai > 0 yang dihitung.
+            $sumKomponen = ['E' => 0, 'F' => 0, 'G' => 0];
+            $cntKomponen = ['E' => 0, 'F' => 0, 'G' => 0];
+            $fieldKomponen = ['E' => 'nilai_akademik', 'F' => 'nilai_kepribadian', 'G' => 'nilai_samapta'];
             foreach ($data as $i => $d) {
                 $r = $i + 10;
                 $npp = $d->nilai_akhir ?? 0;
                 $totalNPP += $npp;
                 if ($npp > 0) $countNPP++;
+
+                foreach ($fieldKomponen as $cc => $f) {
+                    $v = (float) ($d->{$f} ?? 0);
+                    if ($v > 0) { $sumKomponen[$cc] += $v; $cntKomponen[$cc]++; }
+                }
 
                 $sh->setCellValue("A{$r}", $d->rank);
                 $sh->setCellValue("B{$r}", $d->peserta->nama);
@@ -1041,11 +1110,17 @@ class ReportController extends Controller
             }
 
             // ── Footer "Rata-rata Angkatan" (spt PDF) ──
+            // Revisi 22 Sept 2026: kini memuat rata-rata PER KOMPONEN
+            // (Akademik/NPA · Kepribadian/NPK · Samapta/NPS) + NPP.
             if ($countNPP > 0) {
                 $r = $data->count() + 10;
-                $sh->mergeCells("A{$r}:G{$r}");
+                $sh->mergeCells("A{$r}:D{$r}");
                 $sh->setCellValue("A{$r}", 'Rata-rata Angkatan');
                 $sh->getStyle("A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                foreach (['E', 'F', 'G'] as $cc) {
+                    $sh->setCellValue("{$cc}{$r}", $cntKomponen[$cc] > 0 ? round($sumKomponen[$cc] / $cntKomponen[$cc], 2) : '-');
+                    $sh->getStyle("{$cc}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
                 $sh->setCellValue("H{$r}", round($totalNPP / $countNPP, 2));
                 $sh->getStyle("H{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 $sh->getStyle("A{$r}:{$lastCol}{$r}")->applyFromArray([

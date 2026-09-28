@@ -91,6 +91,17 @@
       <div class="metric-label">Rata-rata NPP</div>
       <div class="metric-value" style="color:#4f46e5">{{ $stats['rata_akhir'] }}</div>
     </div>
+    {{-- Revisi 22 Sept 2026: rata-rata angkatan per komponen NPA/NPK/NPS --}}
+    <div class="metric-card">
+      <div class="metric-label">Rata-rata Angkatan NPA · NPK · NPS</div>
+      <div class="metric-value" style="font-size:16px">
+        <span style="color:#0e7490">{{ $stats['rata_npa'] }}</span>
+        <span style="color:#aaa;font-size:12px"> · </span>
+        <span style="color:#b45309">{{ $stats['rata_npk'] }}</span>
+        <span style="color:#aaa;font-size:12px"> · </span>
+        <span style="color:#047857">{{ $stats['rata_nps'] }}</span>
+      </div>
+    </div>
     <div class="metric-card">
       <div class="metric-label">Tertinggi / Terendah</div>
       <div class="metric-value" style="font-size:18px">
@@ -177,6 +188,21 @@
             </tr>
           @endforeach
         </tbody>
+        {{-- Revisi 22 Sept 2026: footer rata-rata angkatan per komponen —
+            N. Akademik (NPA), N. Kepribadian (NPK), N. Samapta (NPS) + NPP.
+            Peserta tanpa nilai (0) tidak ikut dihitung per komponen. --}}
+        @if(isset($stats['rata_npa']))
+        <tfoot>
+          <tr style="font-weight:700;background:#f8fafc">
+            <td colspan="4" style="text-align:right">Rata-rata Angkatan</td>
+            <td style="text-align:right">{{ $stats['rata_npa'] }}</td>
+            <td style="text-align:right">{{ $stats['rata_npk'] }}</td>
+            <td style="text-align:right">{{ $stats['rata_nps'] }}</td>
+            <td style="text-align:right;color:#4f46e5">{{ $stats['rata_akhir'] }}</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+        @endif
       </table>
     </div>
   </div>

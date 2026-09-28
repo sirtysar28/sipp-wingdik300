@@ -73,8 +73,13 @@ class NilaiAkademikController extends Controller
                 'sudah_input'        => false,
             ];
         })
-        // NPA null diurutkan terakhir (pakai -1 sebagai pengganti null).
-        ->sortByDesc(fn($d) => $d->npa ?? -1)->values();
+        // Revisi 25 September 2026 — RANKING NPA dgn TIE-BREAKER:
+        // jika NPA dua peserta SAMA, peringkat lebih tinggi diberikan kepada
+        // peserta dgn JUMLAH NILAI (Σ nilai seluruh mapel) lebih besar —
+        // bukan lagi urutan abjad. NPA null diurutkan terakhir (-1 fallback).
+        ->sortByDesc(fn($d) => $d->jumlah_nilai ?? -1)
+        ->sortByDesc(fn($d) => $d->npa ?? -1)
+        ->values();
 
         return view('nilai-akademik.index', compact('allSkadik', 'skadikId', 'allAngkatan', 'angkatanId', 'angkatan', 'data'));
     }
@@ -573,7 +578,8 @@ class NilaiAkademikController extends Controller
 
         $data = NilaiAkademik::with('peserta')
             ->where('angkatan_id', $angkatanId)
-            ->orderBy('npa', 'desc')
+            // Revisi 25 September 2026: NPA sama → tie-breaker JUMLAH NILAI desc
+            ->orderByDesc('npa')->orderByDesc('jumlah_nilai')
             ->get();
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();

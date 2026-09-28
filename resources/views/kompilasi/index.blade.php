@@ -187,6 +187,35 @@
             </tr>
           @endforeach
         </tbody>
+        {{-- Revisi 25 September 2026: footer rata-rata angkatan per komponen —
+            N. Akademik (NPA), N. Kepribadian (NPK), N. Samapta (NPS) + NPP.
+            Peserta tanpa nilai (0) tidak ikut dihitung per komponen. --}}
+        @php
+          $totalNPP = $countNPP = 0;
+          $totalNPA = $cntNPA = $totalNPK = $cntNPK = $totalNPS = $cntNPS = 0;
+          foreach ($data as $d) {
+              $npp = (float) ($d->nilai_akhir ?? 0);
+              $totalNPP += $npp; if ($npp > 0) $countNPP++;
+              $va = (float) ($d->nilai_akademik ?? 0);
+              if ($va > 0) { $totalNPA += $va; $cntNPA++; }
+              $vk = (float) ($d->nilai_kepribadian ?? 0);
+              if ($vk > 0) { $totalNPK += $vk; $cntNPK++; }
+              $vs = (float) ($d->nilai_samapta ?? 0);
+              if ($vs > 0) { $totalNPS += $vs; $cntNPS++; }
+          }
+        @endphp
+        @if($countNPP > 0)
+        <tfoot>
+          <tr style="font-weight:700;background:#f8fafc">
+            <td colspan="4" style="text-align:right">Rata-rata Angkatan</td>
+            <td style="text-align:right">{{ $cntNPA > 0 ? round($totalNPA / $cntNPA, 2) : '-' }}</td>
+            <td style="text-align:right">{{ $cntNPK > 0 ? round($totalNPK / $cntNPK, 2) : '-' }}</td>
+            <td style="text-align:right">{{ $cntNPS > 0 ? round($totalNPS / $cntNPS, 2) : '-' }}</td>
+            <td style="text-align:right;color:#4f46e5">{{ round($totalNPP / $countNPP, 2) }}</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+        @endif
       </table>
     </div>
   </div>

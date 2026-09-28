@@ -138,6 +138,33 @@
       <td class="bold" style="background:#ffffff;font-size:10pt">{{ $d->npa }}</td>
     </tr>
     @endforeach
+
+    {{-- Revisi 25 September 2026: baris "Rata-rata" — konsisten dgn PDF NPK & NPS.
+        Rata-rata per mapel hanya menghitung nilai > 0 (belum dinilai = kosong);
+        rata-rata NPA hanya menghitung peserta yg sudah punya NPA. --}}
+    @php
+      $punyaNPA = $data->filter(fn($d) => $d->npa !== null);
+      $cntNPA = $punyaNPA->count();
+      $avgNPA = $cntNPA > 0 ? round($punyaNPA->avg('npa'), 2) : null;
+      $avgPerMapel = [];
+      foreach ($mataPelajaran as $mpIdx => $mp) {
+          $vals = $data->map(function ($d) use ($mpIdx) {
+              $det = is_array($d->detail_nilai) ? $d->detail_nilai : (json_decode($d->detail_nilai, true) ?: []);
+              return (float) ($det[$mpIdx] ?? 0);
+          })->filter(fn($v) => $v > 0);
+          $avgPerMapel[$mpIdx] = $vals->count() > 0 ? round($vals->avg(), 2) : null;
+      }
+    @endphp
+    @if($cntNPA > 0)
+    <tr style="font-weight:bold;background:#ffffff">
+      <td colspan="5" class="text-right">Rata-rata</td>
+      @foreach($mataPelajaran as $mpIdx => $mp)
+      <td>{{ $avgPerMapel[$mpIdx] ?? '-' }}</td>
+      @endforeach
+      <td style="background:#ffffff"></td>
+      <td class="bold" style="background:#ffffff">{{ $avgNPA }}</td>
+    </tr>
+    @endif
   </tbody>
 </table>
 
