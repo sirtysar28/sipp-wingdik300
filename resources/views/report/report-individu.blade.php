@@ -88,7 +88,8 @@
     @php
       $npaCard = $akademik ? round($akademik->npa, 2) : round($kompilasi->nilai_akademik, 2);
       $npkCard = round($kepribadianAvg, 2);
-      $npsCard = $samapta ? round($samapta->nilai_konversi ?? $samapta->nilai_akhir ?? 0, 2) : round($kompilasi->nilai_samapta, 2);
+      // Revisi 30 Sept 2026: NPS utk NPP = nilai konversi PUTARAN TERAKHIR (dari $npsAvg controller)
+      $npsCard = $npsAvg ?? round($kompilasi->nilai_samapta, 2);
       $nppCard = round(($npaCard * $kompilasi->bobot_akademik / 100) + ($npkCard * $kompilasi->bobot_kepribadian / 100) + ($npsCard * $kompilasi->bobot_samapta / 100), 2);
     @endphp
     <div style="text-align:center;background:linear-gradient(135deg,#eef2ff,#f5f3ff);padding:12px 20px;border-radius:10px;border:1px solid #c7d2fe">
@@ -189,7 +190,8 @@
   // Gunakan NPA asli dari nilai_akademik (bukan nilai_kompilasi yang mungkin salah)
   $npaAsli = $akademik ? round($akademik->npa, 2) : round($kompilasi->nilai_akademik, 2);
   $npkAsli = round($kepribadianAvg, 2);
-  $npsAsli = $samapta ? round($samapta->nilai_konversi ?? $samapta->nilai_akhir ?? 0, 2) : round($kompilasi->nilai_samapta, 2);
+  // Revisi 30 Sept 2026: NPS utk NPP = nilai konversi PUTARAN TERAKHIR (dari $npsAvg controller)
+  $npsAsli = $npsAvg ?? round($kompilasi->nilai_samapta, 2);
   $nppFix = round(($npaAsli * $kompilasi->bobot_akademik / 100) + ($npkAsli * $kompilasi->bobot_kepribadian / 100) + ($npsAsli * $kompilasi->bobot_samapta / 100), 2);
 @endphp
 <div class="card">

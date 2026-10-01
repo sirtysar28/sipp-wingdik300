@@ -80,6 +80,9 @@ Route::middleware(['auth', 'role:admin_kepribadian,admin'])->group(function () {
     // Wildcard peserta: dibatasi ID numerik agar tidak menimpa route literal di atas
     Route::get('/kepribadian/{peserta}/show', [KepribadianController::class,'show'])
         ->name('kepribadian.show')->whereNumber('peserta');
+    // Revisi 30 Sept 2026: cetak PDF NPK INDIVIDU dari halaman detail peserta
+    Route::get('/kepribadian/{peserta}/cetak', [KepribadianController::class,'cetak'])
+        ->name('kepribadian.cetak')->whereNumber('peserta');
     Route::get('/kepribadian/{peserta}/form',  [KepribadianController::class,'form'])
         ->name('kepribadian.form')->whereNumber('peserta');
     Route::post('/kepribadian/{peserta}',      [KepribadianController::class,'store'])

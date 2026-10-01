@@ -4,6 +4,9 @@
 
 @section('topbar-actions')
 <a href="{{ route('kepribadian.index',['angkatan_id'=>$peserta->angkatan_id,'periode_id'=>$periodeId]) }}" class="btn btn-outline btn-sm">← Kembali</a>
+{{-- Revisi 30 Sept 2026: tombol cetak PDF NPK individu — membuka halaman
+     cetak (print/simpan PDF) utk peserta ini pada periode terpilih. --}}
+<a href="{{ route('kepribadian.cetak',['peserta'=>$peserta->id,'periode_id'=>$periodeId]) }}" class="btn btn-smart btn-sm" target="_blank" title="Cetak / Simpan PDF NPK individu">🖨️ Cetak PDF</a>
 @if(auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isAdminKepribadian())
 <a href="{{ route('kepribadian.form',['peserta'=>$peserta->id,'periode_id'=>$periodeId]) }}" class="btn btn-outline btn-sm">✏ Edit</a>
 @endif
@@ -87,9 +90,12 @@
     {{-- Detail aspek periode terpilih --}}
     @if($current)
     <div class="card" style="margin-bottom:12px">
-      <div style="display:flex;align-items:center;margin-bottom:14px">
+      <div style="display:flex;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
         <span class="card-title" style="margin:0">Detail aspek — {{ $current->periode?->label }}</span>
         <span style="margin-left:auto;font-size:20px;font-weight:700;color:#4f46e5">{{ $current->nilai_akhir }}</span>
+        {{-- Tombol cetak PDF NPK individu (Revisi 30 Sept 2026) --}}
+        <a href="{{ route('kepribadian.cetak',['peserta'=>$peserta->id,'periode_id'=>$periodeId]) }}"
+           class="btn btn-smart btn-sm" target="_blank" title="Cetak / Simpan PDF NPK individu periode ini">🖨️ Cetak PDF</a>
       </div>
 
       @php $detailMap = $current->detail->keyBy('aspek_kepribadian_id'); @endphp

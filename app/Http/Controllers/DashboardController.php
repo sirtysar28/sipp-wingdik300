@@ -43,9 +43,10 @@ class DashboardController extends Controller {
         $sudahNPS = NilaiSamapta::whereIn('peserta_didik_id', $pesertaIds)->where('angkatan_id', $angkatanId)->count();
 
         $avgNPA = NilaiAkademik::whereIn('peserta_didik_id', $pesertaIds)->where('angkatan_id', $angkatanId)->avg('npa');
-        $avgNPK = NilaiKepribadian::whereIn('peserta_didik_id', $pesertaIds)->avg('nilai_akhir');
-        // Revisi 17 Sept 2026: rata-rata NPS dihitung dari NILAI KONVERSI, bukan nilai_akhir
-        $avgNPS = NilaiSamapta::whereIn('peserta_didik_id', $pesertaIds)->where('angkatan_id', $angkatanId)->avg('nilai_konversi');
+        // Revisi 30 Sept 2026: rata-rata NPK & NPS dashboard mengikuti sumber
+        // NPP — PERIODE TERAKHIR (NPK) & PUTARAN TERAKHIR (NPS, nilai konversi).
+        $avgNPK = collect(NilaiKepribadian::npkUntukNppPerPeserta($pesertaIds, null, $angkatanId))->avg() ?? 0;
+        $avgNPS = collect(NilaiSamapta::npsUntukNppPerPeserta($angkatanId, $pesertaIds))->avg() ?? 0;
 
         $sudahKompilasi = $kompilasiData->count();
         $avgNPP = $kompilasiData->count() > 0 ? round($kompilasiData->avg('nilai_akhir'), 2) : 0;

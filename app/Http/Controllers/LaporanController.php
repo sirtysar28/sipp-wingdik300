@@ -81,17 +81,25 @@ class LaporanController extends Controller
         $samapta = NilaiSamapta::where('peserta_didik_id', $pesertaId)
             ->where('angkatan_id', $angkatanId)->first();
 
+        // Revisi 30 Sept 2026: NPP memakai nilai konversi NPS dari PUTARAN
+        // TERAKHIR & NPK dari PERIODE TERAKHIR (konsisten dengan halaman NPP).
+        // Sumber bisa dipilih via param URL dari halaman Report NPP.
+        $npsPutaran  = NppCalculator::normalizeSumber($request->get('nps_putaran'));
+        $npkPeriode  = NppCalculator::normalizeSumber($request->get('npk_periode'));
+        $npkPeriodeId = $npkPeriode !== null ? (int) $npkPeriode : null;
+        $npsAvg = NilaiSamapta::npsUntukNpp($angkatanId, $pesertaId, $npsPutaran);
+
         $kepribadianList = NilaiKepribadian::with('periode', 'detail.aspek')
             ->where('peserta_didik_id', $pesertaId)
             ->orderBy('periode_nilai_id')->get();
-        $kepribadianAvg = $kepribadianList->avg('nilai_akhir') ?? 0;
+        $kepribadianAvg = NilaiKepribadian::npkUntukNpp($pesertaId, $npkPeriodeId, $angkatanId);
 
         // Penandatangan: kanan = Kepala Sekolah (kompilasi), kiri = Danskadik
         $ttdKanan = Penandatangan::getPenandatangan('kompilasi', $angkatan?->skadik_id);
         $ttdKiri = Penandatangan::getPenandatangan('danskadik', $angkatan?->skadik_id);
 
         return view('laporan.cetak-individu', compact(
-            'angkatan', 'peserta', 'kompilasi', 'akademik', 'mataPelajaran', 'samapta', 'kepribadianList', 'kepribadianAvg',
+            'angkatan', 'peserta', 'kompilasi', 'akademik', 'mataPelajaran', 'samapta', 'npsAvg', 'kepribadianList', 'kepribadianAvg',
             'ttdKanan', 'ttdKiri'
         ));
     }
@@ -109,7 +117,11 @@ class LaporanController extends Controller
         }
 
         // SEMUA peserta angkatan tampil (bulk) dengan NPP dihitung live.
-        $data = NppCalculator::forAngkatan($angkatanId);
+        // Revisi 30 Sept 2026: ikuti pilihan sumber NPS (putaran) & NPK (periode)
+        // dari halaman Report NPP — default putaran/periode TERAKHIR.
+        $npsPutaran = NppCalculator::normalizeSumber($request->get('nps_putaran'));
+        $npkPeriode = NppCalculator::normalizeSumber($request->get('npk_periode'));
+        $data = NppCalculator::forAngkatan($angkatanId, $npsPutaran, $npkPeriode);
 
         // Penandatangan
         $ttdKiri = Penandatangan::getPenandatangan('danskadik', $angkatan?->skadik_id);
@@ -127,7 +139,10 @@ class LaporanController extends Controller
         $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
 
         // SEMUA peserta angkatan tampil (bulk) dengan NPP dihitung live.
-        $data = NppCalculator::forAngkatan($angkatanId);
+        // Revisi 30 Sept 2026: ikuti pilihan sumber NPS/NPK (default terakhir).
+        $npsPutaran = NppCalculator::normalizeSumber($request->get('nps_putaran'));
+        $npkPeriode = NppCalculator::normalizeSumber($request->get('npk_periode'));
+        $data = NppCalculator::forAngkatan($angkatanId, $npsPutaran, $npkPeriode);
 
         $spreadsheet = new Spreadsheet();
         ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)

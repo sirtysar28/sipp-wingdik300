@@ -106,6 +106,10 @@
       <div class="metric-label">Terendah</div>
       <div class="metric-value" style="color:#dc2626">{{ round($data->min('nilai_konversi') ?? 0, 2) }}</div>
     </div>
+    <div class="metric-card">
+      <div class="metric-label">NPS Putaran Terakhir (dipakai NPP)</div>
+      <div class="metric-value" style="color:#d97706">{{ round(count($rataNps) ? array_sum($rataNps) / count($rataNps) : 0, 2) }}</div>
+    </div>
   </div>
 
   {{-- Tabel --}}
@@ -123,6 +127,7 @@
             <th>Garjas B</th>
             <th>Nilai Akhir</th>
             <th>Nilai Konversi (NPS)</th>
+            <th>NPS Putaran Terakhir<br><span style="font-weight:400;font-size:10px">(dipakai untuk NPP)</span></th>
             <th>Kategori</th>
             <th>Aksi</th>
           </tr>
@@ -144,6 +149,9 @@
             {{-- Revisi 26 Agustus 2026: kategori Baik/Cukup/Kurang berbasis NILAI KONVERSI --}}
             <td style="text-align:center">
               <span style="font-weight:700;font-size:14px;color:{{ $d->predikat['color'] }}">{{ $d->nilai_konversi ?? '-' }}</span>
+            </td>
+            <td style="text-align:center;background:#fff7ed">
+              <span style="font-weight:700;font-size:14px;color:#d97706">{{ isset($rataNps[$d->peserta_didik_id]) ? round($rataNps[$d->peserta_didik_id], 2) : '-' }}</span>
             </td>
             <td style="text-align:center">
               @if($d->nilai_konversi !== null)

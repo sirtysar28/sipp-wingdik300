@@ -80,16 +80,24 @@ class NilaiSamaptaController extends Controller
         $putaranLabel = NilaiSamapta::normalizePutaran($request->get('putaran_label'));
 
         $data = collect();
+        $rataNps = [];
         if ($angkatan) {
             $data = NilaiSamapta::with('peserta')
                 ->where('angkatan_id', $angkatanId)
                 ->where('putaran_label', $putaranLabel)
                 ->orderByDesc('nilai_akhir')
                 ->get();
+
+            // Revisi 30 Sept 2026: NPS yang DIPAKAI NPP = nilai konversi dari
+            // PUTARAN TERAKHIR per peserta (bukan rata-rata semua putaran).
+            $rataNps = NilaiSamapta::npsUntukNppPerPeserta(
+                $angkatanId,
+                PesertaDidik::where('angkatan_id', $angkatanId)->pluck('id')
+            );
         }
 
         return view('nilai-samapta.index', compact(
-            'allSkadik', 'skadikId', 'allAngkatan', 'angkatanId', 'angkatan', 'data', 'putaranLabel', 'putaranList'
+            'allSkadik', 'skadikId', 'allAngkatan', 'angkatanId', 'angkatan', 'data', 'rataNps', 'putaranLabel', 'putaranList'
         ));
     }
 

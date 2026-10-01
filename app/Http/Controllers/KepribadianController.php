@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Angkatan, PesertaDidik, PeriodeNilai, NilaiKepribadian, DetailKepribadian, AspekKepribadian, Skadik};
+use App\Models\{Angkatan, PesertaDidik, PeriodeNilai, NilaiKepribadian, DetailKepribadian, AspekKepribadian, Skadik, Penandatangan};
 use App\Imports\KepribadianImport;
 use App\Services\ExportFile;
 use Illuminate\Http\Request;
@@ -237,6 +237,39 @@ class KepribadianController extends Controller
         $grafikLabels = $riwayat->pluck('periode.label');
         $grafikNilai  = $riwayat->pluck('nilai_akhir');
         return view('kepribadian.show', compact('peserta','periodes','periodeId','riwayat','current','aspekList','grafikLabels','grafikNilai'));
+    }
+
+    /**
+     * Revisi 30 September 2026 — CETAK PDF NPK INDIVIDU.
+     * Halaman cetak (HTML print → PDF via browser) untuk detail kepribadian
+     * satu peserta: identitas, rekap nilai per periode, detail aspek periode
+     * terpilih, penjelasan/rekomendasi + blok tanda tangan.
+     * Tombolnya ada DI DALAM halaman detail NPK individu (kepribadian.show).
+     */
+    public function cetak(PesertaDidik $peserta, Request $request)
+    {
+        $angkatan  = Angkatan::with('skadik.lemdik')->find($peserta->angkatan_id);
+        if (!$angkatan) {
+            return back()->with('error', 'Angkatan peserta tidak ditemukan.');
+        }
+
+        $periodes  = PeriodeNilai::where('angkatan_id', $peserta->angkatan_id)->orderBy('tanggal_mulai')->get();
+        $periodeId = $request->get('periode_id', $periodes->last()?->id);
+        $riwayat   = NilaiKepribadian::where('peserta_didik_id', $peserta->id)
+            ->with(['periode','detail.aspek'])->orderBy('periode_nilai_id')->get();
+        $current   = $riwayat->where('periode_nilai_id', $periodeId)->first();
+
+        AspekKepribadian::ensureSeeded();
+        $aspekList = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+
+        // Penandatangan: kanan = pejabat laporan kepribadian, kiri = Danskadik
+        // (pola sama dengan cetak NPK angkatan / report.cetak-npk).
+        $ttdKanan = Penandatangan::getPenandatangan('kepribadian', $angkatan->skadik_id);
+        $ttdKiri  = Penandatangan::getPenandatangan('danskadik',   $angkatan->skadik_id);
+
+        return view('kepribadian.cetak', compact(
+            'peserta', 'angkatan', 'periodes', 'periodeId', 'riwayat', 'current', 'aspekList', 'ttdKanan', 'ttdKiri'
+        ));
     }
 
     public function aspekIndex()

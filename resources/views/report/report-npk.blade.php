@@ -171,7 +171,19 @@
             <strong style="font-size:14px;color:#2563eb">{{ $row['rata_rata'] ?? '—' }}</strong>
           </td>
           <td>
-            <a href="{{ route('report.individu', ['angkatan_id'=>$angkatanId,'peserta_id'=>$row['peserta']->id]) }}" class="btn btn-sm btn-outline" title="Laporan Individual">📋</a>
+            {{-- Revisi 30 Sept 2026: aksi utama di Report NPK = DETAIL NILAI
+                 KEPRIBADIAN per siswa (kepribadian.show), bukan laporan
+                 individual (nilai akhir). Tombol 📋 laporan individual tetap
+                 disediakan sesuai hak akses. --}}
+            @php
+              $u = auth()->user();
+            @endphp
+            @if($u->isSuperAdmin() || $u->isAdmin() || $u->isAdminKepribadian())
+              <a href="{{ route('kepribadian.show', $row['peserta']->id) }}" class="btn btn-sm btn-outline" title="Detail Nilai Kepribadian">🧠</a>
+            @endif
+            @if($u->canSeeAll() || $u->isAdminAkademik())
+              <a href="{{ route('report.individu', ['angkatan_id'=>$angkatanId,'peserta_id'=>$row['peserta']->id]) }}" class="btn btn-sm btn-outline" title="Laporan Individual (NPP)">📋</a>
+            @endif
           </td>
         </tr>
         @endforeach

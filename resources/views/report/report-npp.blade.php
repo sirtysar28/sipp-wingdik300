@@ -4,10 +4,10 @@
 
 @section('topbar-actions')
 @if($data->count() > 0)
-<a href="{{ route('report.npp.ekspor', ['angkatan_id' => $angkatanId]) }}" class="btn btn-success btn-sm">📥 Ekspor NPP</a>
+<a href="{{ route('report.npp.ekspor', array_filter(['angkatan_id' => $angkatanId, 'nps_putaran' => $npsPutaran, 'npk_periode' => $npkPeriode])) }}" class="btn btn-success btn-sm">📥 Ekspor NPP</a>
 {{-- Revisi 29 Agustus 2026: cetak PDF NPP HANYA super_admin + Opsdik --}}
 @if(auth()->user()->canSeeAll())
-<a href="{{ route('laporan.cetak.semua', ['angkatan_id' => $angkatanId]) }}" class="btn btn-smart btn-sm" target="_blank">🖨️ Cetak NPP Angkatan</a>
+<a href="{{ route('laporan.cetak.semua', array_filter(['angkatan_id' => $angkatanId, 'nps_putaran' => $npsPutaran, 'npk_periode' => $npkPeriode])) }}" class="btn btn-smart btn-sm" target="_blank">🖨️ Cetak NPP Angkatan</a>
 @endif
 @endif
 @endsection
@@ -40,6 +40,27 @@
         @endforeach
       </select>
     </div>
+    {{-- Revisi 30 Sept 2026: pilihan SUMBER nilai NPP —
+         NPS dari putaran mana & NPK dari periode mana.
+         Default = TERAKHIR (putaran/periode terbaru). --}}
+    <div>
+      <label style="font-size:11px;margin-bottom:3px">Sumber NPS (Samapta)</label>
+      <select name="nps_putaran" onchange="this.form.submit()">
+        <option value="" {{ !$npsPutaran ? 'selected' : '' }}>🔄 Putaran Terakhir</option>
+        @foreach($putaranList as $pl)
+          <option value="{{ $pl }}" {{ $npsPutaran == $pl ? 'selected' : '' }}>{{ $pl }}</option>
+        @endforeach
+      </select>
+    </div>
+    <div>
+      <label style="font-size:11px;margin-bottom:3px">Sumber NPK (Kepribadian)</label>
+      <select name="npk_periode" onchange="this.form.submit()">
+        <option value="" {{ !$npkPeriode ? 'selected' : '' }}>🔄 Periode Terakhir</option>
+        @foreach($periodeList as $per)
+          <option value="{{ $per->id }}" {{ $npkPeriode == $per->id ? 'selected' : '' }}>{{ $per->label }} ({{ optional($per->tanggal_mulai)->format('d M Y') }})</option>
+        @endforeach
+      </select>
+    </div>
   </form>
 </div>
 
@@ -53,6 +74,28 @@
     <form method="POST" action="{{ route('kompilasi.proses') }}" id="formKompilasi">
       @csrf
       <input type="hidden" name="angkatan_id" value="{{ $angkatanId }}">
+      {{-- Revisi 30 Sept 2026: pilihan sumber NPS & NPK utk proses kompilasi
+           (default "Putaran/Periode Terakhir" — konsisten dgn filter di atas). --}}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div class="form-group" style="margin:0">
+          <label>Sumber NPS (Samapta)</label>
+          <select name="nps_putaran">
+            <option value="">🔄 Putaran Terakhir (otomatis)</option>
+            @foreach($putaranList as $pl)
+              <option value="{{ $pl }}" {{ $npsPutaran == $pl ? 'selected' : '' }}>{{ $pl }}</option>
+            @endforeach
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Sumber NPK (Kepribadian)</label>
+          <select name="npk_periode">
+            <option value="">🔄 Periode Terakhir (otomatis)</option>
+            @foreach($periodeList as $per)
+              <option value="{{ $per->id }}" {{ $npkPeriode == $per->id ? 'selected' : '' }}>{{ $per->label }} ({{ optional($per->tanggal_mulai)->format('d M Y') }})</option>
+            @endforeach
+          </select>
+        </div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end">
         <div class="form-group" style="margin:0">
           <label>Bobot Akademik (%)</label>
@@ -72,6 +115,9 @@
       </div>
       <div id="bobotWarning" style="display:none;margin-top:8px;color:#dc2626;font-size:12px;font-weight:600">
         ⚠️ Total bobot harus 100%!
+      </div>
+      <div style="margin-top:8px;color:#666;font-size:11px">
+        ℹ️ Default: NPS dari <strong>putaran terakhir</strong> & NPK dari <strong>periode terakhir</strong>.
       </div>
     </form>
   </div>
@@ -138,6 +184,13 @@
   {{-- ── Tabel NPP ── --}}
   @if($data->count() > 0)
   <div class="card" style="padding:0;overflow:hidden">
+    {{-- Revisi 30 Sept 2026: info sumber nilai yang sedang dipakai --}}
+    @if($data->first()->sumber_nps || $data->first()->sumber_npk)
+    <div style="padding:10px 14px;font-size:11px;color:#666;border-bottom:1px solid #eee">
+      📌 Sumber nilai — NPS: <strong style="color:#047857">{{ $data->first()->sumber_nps }}</strong>
+      · NPK: <strong style="color:#b45309">{{ $data->first()->sumber_npk }}</strong>
+    </div>
+    @endif
     <div class="table-wrap">
       <table>
         <thead>
@@ -180,7 +233,7 @@
               </td>
               <td style="text-align:center">
                 @if(auth()->user()->canSeeAll())
-                <a href="{{ route('laporan.cetak.individu', ['angkatan_id' => $angkatanId, 'peserta_id' => $d->peserta_didik_id]) }}" class="btn btn-sm btn-outline" title="Cetak Laporan Individu" target="_blank">🖨️</a>
+                <a href="{{ route('laporan.cetak.individu', array_filter(['angkatan_id' => $angkatanId, 'peserta_id' => $d->peserta_didik_id, 'nps_putaran' => $npsPutaran, 'npk_periode' => $npkPeriode])) }}" class="btn btn-sm btn-outline" title="Cetak Laporan Individu" target="_blank">🖨️</a>
                 @else
                 <span style="color:#bbb" title="Cetak hanya oleh Super Admin / Opsdik">—</span>
                 @endif

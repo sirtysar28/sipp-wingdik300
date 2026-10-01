@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Angkatan, PesertaDidik, NilaiAkademik, NilaiSamapta, NilaiKepribadian, KompilasiNilai, PeriodeNilai, Skadik};
 use App\Services\ExportFile;
+use App\Services\NppCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -18,9 +19,16 @@ class KompilasiNilaiController extends Controller
         $allAngkatan = $angkatanQuery->get();
         $angkatanId  = $request->get('angkatan_id', $allAngkatan->first()?->id);
 
+        // Revisi 30 Sept 2026: daftar pilihan sumber NPS (putaran) & NPK (periode)
+        // untuk dropdown "Sumber Nilai" pada form Proses Kompilasi.
+        $putaranList = $angkatanId ? NilaiSamapta::getPutaranList($angkatanId) : [];
+        $periodeList = $angkatanId
+            ? PeriodeNilai::where('angkatan_id', $angkatanId)->orderBy('tanggal_mulai')->get()
+            : collect();
+
         $angkatan = Angkatan::with('skadik.lemdik')->find($angkatanId);
         if (!$angkatan) {
-            return view('kompilasi.index', compact('allSkadik', 'skadikId', 'allAngkatan', 'angkatanId') + ['angkatan' => null, 'data' => collect(), 'stats' => []]);
+            return view('kompilasi.index', compact('allSkadik', 'skadikId', 'allAngkatan', 'angkatanId', 'putaranList', 'periodeList') + ['angkatan' => null, 'data' => collect(), 'stats' => []]);
         }
 
         $data = KompilasiNilai::with('peserta', 'nilaiAkademik')
@@ -44,7 +52,7 @@ class KompilasiNilaiController extends Controller
             'terendah' => $data->min('nilai_akhir') ?? 0,
         ];
 
-        return view('kompilasi.index', compact('allSkadik', 'skadikId', 'allAngkatan', 'angkatanId', 'angkatan', 'data', 'stats'));
+        return view('kompilasi.index', compact('allSkadik', 'skadikId', 'allAngkatan', 'angkatanId', 'putaranList', 'periodeList', 'angkatan', 'data', 'stats'));
     }
 
     public function proses(Request $request)
@@ -54,6 +62,11 @@ class KompilasiNilaiController extends Controller
             'bobot_akademik'    => 'required|numeric|min:0|max:100',
             'bobot_kepribadian' => 'required|numeric|min:0|max:100',
             'bobot_samapta'     => 'required|numeric|min:0|max:100',
+            // Revisi 30 Sept 2026: pilihan sumber nilai utk NPP.
+            //   nps_putaran: '' = putaran TERAKHIR (default), atau label putaran.
+            //   npk_periode: '' = periode TERAKHIR (default), atau id periode_nilai.
+            'nps_putaran'       => 'nullable|string|max:100',
+            'npk_periode'       => 'nullable|integer|exists:periode_nilai,id',
         ]);
 
         $angkatanId = $request->angkatan_id;
@@ -67,7 +80,33 @@ class KompilasiNilaiController extends Controller
             return back()->withErrors(['Total bobot harus 100% (saat ini ' . round($totalBobot * 100) . '%)']);
         }
 
+        // ── Resolusi sumber NPS & NPK (Revisi 30 Sept 2026) ──
+        $npsPutaran = NppCalculator::normalizeSumber($request->nps_putaran); // null = terakhir
+        $npkPeriodeId = NppCalculator::normalizeSumber($request->npk_periode);
+        $npkPeriodeId = $npkPeriodeId !== null ? (int) $npkPeriodeId : null;
+
+        // Pastikan periode milik angkatan yg dipilih
+        if ($npkPeriodeId && !PeriodeNilai::where('id', $npkPeriodeId)->where('angkatan_id', $angkatanId)->exists()) {
+            return back()->withErrors(['Periode NPK tidak ditemukan pada angkatan ini.']);
+        }
+
+        $sumberNps = $npsPutaran
+            ?? NilaiSamapta::putaranTerakhirLabel($angkatanId)
+            ?? NilaiSamapta::PUTARAN_DEFAULT;
+        $sumberNpkObj = $npkPeriodeId
+            ? PeriodeNilai::find($npkPeriodeId)
+            : NilaiKepribadian::periodeTerakhir($angkatanId);
+        $sumberNpk = $sumberNpkObj?->label ?? '-';
+
         $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
+        $pesertaIds  = $pesertaList->pluck('id');
+
+        // Muat SEKALI untuk semua peserta (efisien, tidak per-peserta query).
+        // Revisi 30 Sept 2026: NPS = nilai konversi PUTARAN TERAKHIR / pilihan,
+        // NPK = nilai PERIODE TERAKHIR / pilihan (bukan rata-rata).
+        $samaptaMap     = NilaiSamapta::npsUntukNppPerPeserta($angkatanId, $pesertaIds, $npsPutaran);
+        $kepribadianMap = NilaiKepribadian::npkUntukNppPerPeserta($pesertaIds, $npkPeriodeId, $angkatanId);
+
         $hasil = [];
 
         DB::beginTransaction();
@@ -80,17 +119,12 @@ class KompilasiNilaiController extends Controller
                 $nilaiAkademik = $na ? round($na->npa, 2) : 0;
                 $akademikId = $na?->id;
 
-                // Nilai Kepribadian (rata-rata semua periode)
-                $nkAvg = NilaiKepribadian::where('peserta_didik_id', $peserta->id)
-                    ->avg('nilai_akhir') ?? 0;
-                $nilaiKepribadian = round($nkAvg, 2);
+                // Nilai Kepribadian (NPK) — dari periode TERAKHIR / pilihan
+                $nilaiKepribadian = $kepribadianMap[$peserta->id] ?? 0;
 
-                // Nilai Samapta (NPS) — Revisi 18 September 2026: NPP memakai
-                // NILAI KONVERSI (bukan nilai akhir); fallback nilai_akhir
-                // hanya untuk data lama yang belum punya konversi.
-                $ns = NilaiSamapta::where('peserta_didik_id', $peserta->id)
-                    ->where('angkatan_id', $angkatanId)->first();
-                $nilaiSamapta = $ns ? ($ns->nilai_konversi ?? $ns->nilai_akhir ?? 0) : 0;
+                // Nilai Samapta (NPS) — nilai konversi putaran TERAKHIR / pilihan;
+                // fallback nilai_akhir utk data lama tanpa konversi (di model).
+                $nilaiSamapta = $samaptaMap[$peserta->id] ?? 0;
 
                 // Kompilasi
                 $nilaiAkhir = ($nilaiAkademik * $ba) + ($nilaiKepribadian * $bk) + ($nilaiSamapta * $bs);
@@ -106,6 +140,8 @@ class KompilasiNilaiController extends Controller
                         'bobot_kepribadian'  => $request->bobot_kepribadian,
                         'nilai_samapta'      => round($nilaiSamapta, 2),
                         'bobot_samapta'      => $request->bobot_samapta,
+                        'sumber_nps'         => $sumberNps,
+                        'sumber_npk'         => $sumberNpk,
                         'nilai_akhir'        => round($nilaiAkhir, 2),
                         'predikat_angka'     => $predikat['angka'],
                         'predikat_huruf'     => $predikat['huruf'],
@@ -137,7 +173,7 @@ class KompilasiNilaiController extends Controller
         }
 
         return redirect()->route('kompilasi.index', ['angkatan_id' => $angkatanId])
-            ->with('success', 'Kompilasi nilai berhasil diproses untuk ' . count($hasil) . ' peserta.');
+            ->with('success', 'Kompilasi nilai berhasil diproses untuk ' . count($hasil) . ' peserta — sumber NPS: "' . $sumberNps . '", sumber NPK: "' . $sumberNpk . '".');
     }
 
     public function ekspor(Request $request)

@@ -51,6 +51,28 @@
     <form method="POST" action="{{ route('kompilasi.proses') }}" id="formKompilasi">
       @csrf
       <input type="hidden" name="angkatan_id" value="{{ $angkatanId }}">
+      {{-- Revisi 30 Sept 2026: pilihan SUMBER NPS (putaran) & NPK (periode).
+           Default = "Terakhir" (putaran/periode terbaru) sesuai kebijakan NPP. --}}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div class="form-group" style="margin:0">
+          <label>Sumber NPS (Samapta)</label>
+          <select name="nps_putaran" id="npsPutaran">
+            <option value="">🔄 Putaran Terakhir (otomatis)</option>
+            @foreach($putaranList as $pl)
+              <option value="{{ $pl }}">{{ $pl }}</option>
+            @endforeach
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Sumber NPK (Kepribadian)</label>
+          <select name="npk_periode" id="npkPeriode">
+            <option value="">🔄 Periode Terakhir (otomatis)</option>
+            @foreach($periodeList as $per)
+              <option value="{{ $per->id }}">{{ $per->label }} ({{ optional($per->tanggal_mulai)->format('d M Y') }})</option>
+            @endforeach
+          </select>
+        </div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end">
         <div class="form-group" style="margin:0">
           <label>Bobot Akademik (%)</label>
@@ -70,6 +92,9 @@
       </div>
       <div id="bobotWarning" style="display:none;margin-top:8px;color:#dc2626;font-size:12px;font-weight:600">
         ⚠️ Total bobot harus 100%!
+      </div>
+      <div style="margin-top:8px;color:#666;font-size:11px">
+        ℹ️ Default: NPS diambil dari <strong>putaran terakhir</strong> & NPK dari <strong>periode terakhir</strong>. Pilih sumber lain di atas bila diperlukan.
       </div>
     </form>
   </div>
@@ -139,6 +164,16 @@
   {{-- Tabel Kompilasi --}}
   @if($data->count() > 0)
   <div class="card">
+    <div style="padding:10px 14px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+      <div class="card-title" style="margin:0">🏆 Hasil NPP</div>
+      {{-- Revisi 30 Sept 2026: tampilkan sumber NPS/NPK yang dipakai saat proses --}}
+      @if($data->first()->sumber_nps || $data->first()->sumber_npk)
+      <div style="font-size:11px;color:#666">
+        Sumber nilai — NPS: <strong style="color:#047857">{{ $data->first()->sumber_nps ?? '-' }}</strong>
+        · NPK: <strong style="color:#b45309">{{ $data->first()->sumber_npk ?? '-' }}</strong>
+      </div>
+      @endif
+    </div>
     <div class="table-wrap">
       <table>
         <thead>

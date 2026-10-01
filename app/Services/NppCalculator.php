@@ -1,7 +1,7 @@
 <?php
 namespace App\Services;
 
-use App\Models\{Angkatan, PesertaDidik, NilaiAkademik, NilaiKepribadian, NilaiSamapta, KompilasiNilai};
+use App\Models\{Angkatan, PesertaDidik, NilaiAkademik, NilaiKepribadian, NilaiSamapta, KompilasiNilai, PeriodeNilai};
 use Illuminate\Support\Collection;
 
 /**
@@ -17,6 +17,12 @@ use Illuminate\Support\Collection;
  *  - Leaderboard: urutan berdasarkan NPP asli, bukan NPK / rank stale
  *  - Cetak Laporan / Report NPP: menampilkan SEMUA peserta angkatan (bulk),
  *    termasuk yang belum sempat diproses di menu Kompilasi.
+ *
+ * Revisi 30 September 2026 — SUMBER NPS & NPK BISA DIPILIH:
+ *  - NPS diambil dari NILAI KONVERSI putaran TERAKHIR (default), atau
+ *    putaran tertentu pilihan user (param $npsPutaran).
+ *  - NPK diambil dari nilai periode TERAKHIR (default), atau periode
+ *    tertentu pilihan user (param $npkPeriodeId).
  */
 class NppCalculator
 {
@@ -25,15 +31,33 @@ class NppCalculator
     public const BOBOT_KEPRIBADIAN_DEFAULT = 20;
     public const BOBOT_SAMAPTA_DEFAULT = 10;
 
+    /** Nilai param "sumber" = otomatis ambil yang TERAKHIR. */
+    public const SUMBER_TERAKHIR = 'terakhir';
+
+    /**
+     * Normalisasi input sumber dari request: null/''/'terakhir' → null
+     * (artinya pakai yang terakhir), selain itu → nilai pilihan user.
+     */
+    public static function normalizeSumber($value): ?string
+    {
+        $v = trim((string) $value);
+        return ($v === '' || strcasecmp($v, self::SUMBER_TERAKHIR) === 0) ? null : $v;
+    }
+
     /**
      * Bangun peringkat NPP live untuk satu angkatan.
+     *
+     * @param int|null      $angkatanId
+     * @param string|null   $npsPutaran   null = putaran TERAKHIR; selain itu label putaran pilihan
+     * @param int|string|null $npkPeriode null = periode TERAKHIR; selain itu id periode_nilai
      *
      * @return \Illuminate\Support\Collection  kumpulan object dengan property:
      *   peserta, peserta_didik_id, nilai_akademik, nilai_kepribadian,
      *   nilai_samapta, bobot_akademik, bobot_kepribadian, bobot_samapta,
-     *   nilai_akhir (NPP), rank, predikat_huruf, predikat_angka
+     *   nilai_akhir (NPP), rank, predikat_huruf, predikat_angka,
+     *   sumber_nps (label putaran), sumber_npk (label periode)
      */
-    public static function forAngkatan(?int $angkatanId): Collection
+    public static function forAngkatan(?int $angkatanId, ?string $npsPutaran = null, $npkPeriode = null): Collection
     {
         if (!$angkatanId) return collect();
 
@@ -55,26 +79,35 @@ class NppCalculator
         $akademikMap = NilaiAkademik::where('angkatan_id', $angkatanId)
             ->whereIn('peserta_didik_id', $ids)->get()->keyBy('peserta_didik_id');
 
-        $samaptaMap = NilaiSamapta::where('angkatan_id', $angkatanId)
-            ->whereIn('peserta_didik_id', $ids)->get()->keyBy('peserta_didik_id');
+        // Revisi 30 September 2026: NPP memakai NILAI KONVERSI NPS dari
+        // PUTARAN TERAKHIR (default) atau putaran pilihan user. Fallback ke
+        // nilai_akhir hanya untuk data lama yang belum punya nilai konversi
+        // (ditangani di npsUntukNppPerPeserta).
+        $npsPutaran = self::normalizeSumber($npsPutaran);
+        $samaptaMap = NilaiSamapta::npsUntukNppPerPeserta($angkatanId, $ids, $npsPutaran);
 
-        // Rata-rata nilai kepribadian semua periode per peserta.
-        $kepribadianAvgs = NilaiKepribadian::whereIn('peserta_didik_id', $ids)
-            ->selectRaw('peserta_didik_id, AVG(nilai_akhir) as avg_nilai')
-            ->groupBy('peserta_didik_id')
-            ->pluck('avg_nilai', 'peserta_didik_id');
+        // Revisi 30 September 2026: NPK diambil dari PERIODE TERAKHIR
+        // (default) atau periode pilihan user — bukan rata-rata semua periode.
+        $npkPeriodeId = self::normalizeSumber($npkPeriode);
+        $npkPeriodeId = $npkPeriodeId !== null ? (int) $npkPeriodeId : null;
+        $kepribadianMap = NilaiKepribadian::npkUntukNppPerPeserta($ids, $npkPeriodeId, $angkatanId);
+
+        // Label sumber (untuk keterangan di halaman NPP / cetak laporan).
+        $sumberNps = $npsPutaran
+            ?? NilaiSamapta::putaranTerakhirLabel($angkatanId)
+            ?? NilaiSamapta::PUTARAN_DEFAULT;
+        $sumberNpkObj = $npkPeriodeId
+            ? PeriodeNilai::find($npkPeriodeId)
+            : NilaiKepribadian::periodeTerakhir($angkatanId);
+        $sumberNpk = $sumberNpkObj?->label ?? '-';
 
         $rows = [];
         foreach ($pesertaList as $p) {
             $na = $akademikMap->get($p->id);
-            $ns = $samaptaMap->get($p->id);
 
             $npa = $na ? round($na->npa, 2) : 0;
-            $npk = $kepribadianAvgs->has($p->id) ? round($kepribadianAvgs[$p->id], 2) : 0;
-            // Revisi 18 September 2026: NPP memakai NILAI KONVERSI NPS
-            // (bukan nilai akhir). Fallback ke nilai_akhir hanya untuk data
-            // lama yang belum punya nilai konversi.
-            $nps = $ns ? round($ns->nilai_konversi ?? $ns->nilai_akhir ?? 0, 2) : 0;
+            $npk = $kepribadianMap[$p->id] ?? 0;
+            $nps = $samaptaMap[$p->id] ?? 0;
             $npp = round(($npa * $bA / 100) + ($npk * $bK / 100) + ($nps * $bS / 100), 2);
 
             $predikat = KompilasiNilai::getPredikat($npp);
@@ -91,6 +124,8 @@ class NppCalculator
                 'nilai_akhir'        => $npp,
                 'predikat_huruf'     => $predikat['huruf'],
                 'predikat_angka'     => $predikat['angka'],
+                'sumber_nps'         => $sumberNps,
+                'sumber_npk'         => $sumberNpk,
             ];
         }
 
@@ -106,9 +141,10 @@ class NppCalculator
     /**
      * Hitung NPP untuk satu peserta pada satu angkatan.
      */
-    public static function forPeserta(?int $angkatanId, ?int $pesertaId): ?object
+    public static function forPeserta(?int $angkatanId, ?int $pesertaId, ?string $npsPutaran = null, $npkPeriode = null): ?object
     {
         if (!$angkatanId || !$pesertaId) return null;
-        return self::forAngkatan($angkatanId)->firstWhere('peserta_didik_id', $pesertaId);
+        return self::forAngkatan($angkatanId, $npsPutaran, $npkPeriode)
+            ->firstWhere('peserta_didik_id', $pesertaId);
     }
 }

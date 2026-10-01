@@ -54,6 +54,31 @@ class ReportController extends Controller
         return [$allSkadik, $skadikId, $allAngkatan, $angkatanId, $angkatan];
     }
 
+    /**
+     * Σ(MP×HN) — total nilai tertimbang yang TAMPIL pada kolom "Σ(MP×HN)"
+     * Report NPA (dihitung live dari detail_nilai × harga_nilai_calc — sama
+     * persis dengan perhitungan di view/ekspor).
+     * CATATAN: kolom jumlah_nilai di DB hanyalah Σ(MP) TANPA bobot, sehingga
+     * tidak boleh dipakai untuk urutan/tie-break ranking.
+     * Revisi 1 Oktober 2026.
+     */
+    private function sigmaMPHN($d, $mataPelajaran): float
+    {
+        // Tanpa konfigurasi mapel, view menampilkan jumlah_nilai (Σ MP) —
+        // pakai itu supaya urutan tetap sesuai kolom yang dilihat user.
+        if (!$mataPelajaran || $mataPelajaran->isEmpty()) {
+            return (float)($d->jumlah_nilai ?? -1);
+        }
+        $detail = is_array($d->detail_nilai ?? null)
+            ? $d->detail_nilai
+            : (json_decode($d->detail_nilai ?? '[]', true) ?: []);
+        $sum = 0;
+        foreach ($mataPelajaran as $idx => $mp) {
+            $sum += (float)($detail[$idx] ?? 0) * (float)$mp->harga_nilai_calc;
+        }
+        return round($sum, 2);
+    }
+
     // ── Report NPA Angkatan ──────────────────────────────────
     // Revisi 2 September 2026: hasil TIDAK langsung ditampilkan. User memilih
     // Sekolah–Angkatan lalu menekan tombol "🔍 Tampilkan" (?tampilkan=1)
@@ -65,6 +90,14 @@ class ReportController extends Controller
 
             // Baru muat data setelah tombol "Tampilkan" ditekan
             $submitted = $request->filled('tampilkan');
+
+            // Autoload mata pelajaran from mata_pelajaran table per sekolah (via pivot)
+            // — dimuat lebih dulu karena diperlukan untuk menghitung Σ(MP×HN)
+            //   pada saat sorting daftar peserta.
+            $mataPelajaran = collect();
+            if ($angkatan && $angkatan->skadik_id) {
+                $mataPelajaran = \App\Models\MataPelajaran::forSkadik($angkatan->skadik_id, true);
+            }
 
             // Daftar BERBASIS PESERTA agar jumlah siswa konsisten dengan NPK & NPS:
             // semua peserta tampil, termasuk yang belum diberi NPA.
@@ -80,17 +113,13 @@ class ReportController extends Controller
                         'npa' => null, 'jumlah_nilai' => null, 'detail_nilai' => [],
                     ];
                 })
-                // Revisi 25 September 2026 — NPA sama → tie-breaker JUMLAH
-                // NILAI lebih tinggi diperingkat lebih atas (bukan abjad).
-                ->sortByDesc(fn($d) => $d->jumlah_nilai ?? -1)
+                // Revisi 1 Oktober 2026 — urut NPA desc; NPA sama → tie-breaker
+                // Σ(MP×HN) TERBESAR diperingkat paling atas (kolom yang
+                // benar-benar ditampilkan, bukan jumlah_nilai di DB yang
+                // berupa Σ(MP) tanpa bobot).
+                ->sortByDesc(fn($d) => $this->sigmaMPHN($d, $mataPelajaran))
                 ->sortByDesc(fn($d) => $d->npa ?? -1)
                 ->values();
-            }
-
-            // Autoload mata pelajaran from mata_pelajaran table per sekolah (via pivot)
-            $mataPelajaran = collect();
-            if ($angkatan && $angkatan->skadik_id) {
-                $mataPelajaran = \App\Models\MataPelajaran::forSkadik($angkatan->skadik_id, true);
             }
 
             return view('report.report-angkatan', array_merge(compact(
@@ -242,6 +271,11 @@ class ReportController extends Controller
             $submitted = $request->filled('tampilkan') || $request->filled('peserta_id');
 
             $peserta = null;
+            // Revisi 30 Sept 2026: $npsAvg WAJIB diinisialisasi null — sebelumnya
+            // hanya didefinisikan di dalam if($peserta), sehingga saat menu
+            // Report Individual dibuka TANPA peserta terpilih, compact()
+            // melempar "Undefined variable $npsAvg" dan halaman gagal dimuat.
+            $npsAvg = null;
             $akademik = null; $kepribadianList = null; $kepribadianAvg = null; $samapta = null; $kompilasi = null; $mataPelajaran = collect();
 
             if ($submitted && $pesertaId) {
@@ -252,8 +286,12 @@ class ReportController extends Controller
             if ($peserta) {
                 $akademik = NilaiAkademik::where('peserta_didik_id', $pesertaId)->where('angkatan_id', $angkatanId)->first();
                 $kepribadianList = NilaiKepribadian::with('periode','detail.aspek')->where('peserta_didik_id', $pesertaId)->orderBy('periode_nilai_id')->get();
-                $kepribadianAvg = $kepribadianList->avg('nilai_akhir') ?? 0;
                 $samapta = NilaiSamapta::where('peserta_didik_id', $pesertaId)->where('angkatan_id', $angkatanId)->first();
+                // Revisi 30 Sept 2026: NPP individu memakai nilai konversi NPS
+                // dari PUTARAN TERAKHIR & NPK dari PERIODE TERAKHIR (konsisten
+                // dengan NppCalculator / halaman NPP).
+                $npsAvg = NilaiSamapta::npsUntukNpp($angkatanId, $pesertaId);
+                $kepribadianAvg = NilaiKepribadian::npkUntukNpp($pesertaId, null, $angkatanId);
                 $kompilasi = KompilasiNilai::where('peserta_didik_id', $pesertaId)->where('angkatan_id', $angkatanId)->first();
 
                 // Fallback: bila peserta belum dikompilasi, tetap bangun objek bobot
@@ -266,7 +304,7 @@ class ReportController extends Controller
                         'bobot_samapta'     => $ref->bobot_samapta     ?? NppCalculator::BOBOT_SAMAPTA_DEFAULT,
                         'nilai_akademik'    => $akademik ? round($akademik->npa, 2) : 0,
                         'nilai_kepribadian' => round($kepribadianAvg, 2),
-                        'nilai_samapta'     => $samapta ? round($samapta->nilai_konversi ?? $samapta->nilai_akhir ?? 0, 2) : 0,
+                        'nilai_samapta'     => $npsAvg,
                         'predikat_huruf'    => '-',
                         'predikat_angka'    => 0,
                     ];
@@ -281,7 +319,7 @@ class ReportController extends Controller
             return view('report.report-individu', compact(
                 'allSkadik','skadikId','allAngkatan','angkatanId','angkatan','submitted',
                 'pesertaList','pesertaId','peserta',
-                'akademik','kepribadianList','kepribadianAvg','samapta','kompilasi','mataPelajaran'
+                'akademik','kepribadianList','kepribadianAvg','samapta','npsAvg','kompilasi','mataPelajaran'
             ));
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal memuat report individu: ' . $e->getMessage());
@@ -296,13 +334,24 @@ class ReportController extends Controller
             // keliru) — perilaku filter NPP lainnya tidak berubah.
             [$allSkadik, $skadikId, $allAngkatan, $angkatanId, $angkatan] = $this->resolveSekolahAngkatan($request);
 
+            // Revisi 30 Sept 2026: pilihan SUMBER NPS (putaran) & NPK (periode).
+            // Default = TERAKHIR (putaran/periode terbaru) — sesuai kebijakan NPP.
+            $npsPutaran = NppCalculator::normalizeSumber($request->get('nps_putaran'));
+            $npkPeriode = NppCalculator::normalizeSumber($request->get('npk_periode'));
+            $putaranList = $angkatanId ? NilaiSamapta::getPutaranList($angkatanId) : [];
+            $periodeList = $angkatanId
+                ? PeriodeNilai::where('angkatan_id', $angkatanId)->orderBy('tanggal_mulai')->get()
+                : collect();
+
             if (!$angkatan) {
-                return view('report.report-npp', compact('allSkadik', 'skadikId', 'allAngkatan', 'angkatanId') + [
+                return view('report.report-npp', compact('allSkadik', 'skadikId', 'allAngkatan', 'angkatanId', 'putaranList', 'periodeList', 'npsPutaran', 'npkPeriode') + [
                     'angkatan' => null, 'data' => collect(), 'stats' => []
                 ]);
             }
 
-            $data = NppCalculator::forAngkatan($angkatanId); // SEMUA peserta (bulk), dihitung live
+            // SEMUA peserta (bulk), dihitung live — NPS dari putaran TERAKHIR
+            // / pilihan user, NPK dari periode TERAKHIR / pilihan user.
+            $data = NppCalculator::forAngkatan($angkatanId, $npsPutaran, $npkPeriode);
 
             $totalPeserta = PesertaDidik::where('angkatan_id', $angkatanId)->count();
 
@@ -331,7 +380,7 @@ class ReportController extends Controller
             ];
 
             return view('report.report-npp', compact(
-                'allSkadik', 'skadikId', 'allAngkatan', 'angkatanId', 'angkatan', 'data', 'stats'
+                'allSkadik', 'skadikId', 'allAngkatan', 'angkatanId', 'putaranList', 'periodeList', 'npsPutaran', 'npkPeriode', 'angkatan', 'data', 'stats'
             ));
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal memuat report NPP: ' . $e->getMessage());
@@ -404,9 +453,9 @@ class ReportController extends Controller
                     'npa' => null, 'jumlah_nilai' => null, 'detail_nilai' => [],
                 ];
             })
-            // Revisi 25 September 2026 — NPA sama → tie-breaker JUMLAH NILAI
-            // desc (identik preview/cetak agar rank Excel = rank preview).
-            ->sortByDesc(fn($d) => $d->jumlah_nilai ?? -1)
+            // Revisi 1 Oktober 2026 — NPA sama → tie-breaker Σ(MP×HN) desc
+            // (identik preview/cetak agar rank Excel = rank preview).
+            ->sortByDesc(fn($d) => $this->sigmaMPHN($d, $mataPelajaran))
             ->sortByDesc(fn($d) => $d->npa ?? -1)
             ->values();
 
@@ -583,14 +632,19 @@ class ReportController extends Controller
         try {
             $angkatanId = $request->get('angkatan_id');
             $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
-            // Revisi 25 September 2026: NPA sama → tie-breaker JUMLAH NILAI desc
-            $data = NilaiAkademik::with('peserta')->where('angkatan_id', $angkatanId)
-                ->orderByDesc('npa')->orderByDesc('jumlah_nilai')->get();
 
             $mataPelajaran = collect();
             if ($angkatan && $angkatan->skadik_id) {
                 $mataPelajaran = \App\Models\MataPelajaran::forSkadik($angkatan->skadik_id, true);
             }
+
+            // Revisi 1 Oktober 2026: urut NPA desc; NPA sama → tie-breaker
+            // Σ(MP×HN) desc (jumlah_nilai di DB = Σ(MP) tanpa bobot, tidak
+            // sesuai kolom Σ(MP×HN) yang dicetak).
+            $data = NilaiAkademik::with('peserta')->where('angkatan_id', $angkatanId)->get()
+                ->sortByDesc(fn($d) => $this->sigmaMPHN($d, $mataPelajaran))
+                ->sortByDesc(fn($d) => $d->npa ?? -1)
+                ->values();
 
             $totalHN = $mataPelajaran->sum(fn($mp) => $mp->harga_nilai_calc);
 
@@ -977,8 +1031,13 @@ class ReportController extends Controller
             $angkatanId = $request->get('angkatan_id');
             $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
 
+            // Revisi 30 Sept 2026: ikuti pilihan sumber NPS/NPK dari halaman
+            // Report NPP (default = putaran/periode terakhir).
+            $npsPutaran = NppCalculator::normalizeSumber($request->get('nps_putaran'));
+            $npkPeriode = NppCalculator::normalizeSumber($request->get('npk_periode'));
+
             // Data live — sama seperti LaporanController::cetakSemua (PDF)
-            $data = NppCalculator::forAngkatan($angkatanId);
+            $data = NppCalculator::forAngkatan($angkatanId, $npsPutaran, $npkPeriode);
             $first = $data->first();
 
             $spreadsheet = new Spreadsheet();
@@ -1036,7 +1095,12 @@ class ReportController extends Controller
             $bK = $first->bobot_kepribadian ?? NppCalculator::BOBOT_KEPRIBADIAN_DEFAULT;
             $bS = $first->bobot_samapta ?? NppCalculator::BOBOT_SAMAPTA_DEFAULT;
             $sh->mergeCells("A6:{$lastCol}6");
-            $sh->setCellValue('A6', "Bobot: Akademik {$bA}% · Kepribadian {$bK}% · Samapta {$bS}%");
+            // Revisi 30 Sept 2026: info sumber NPS (putaran) & NPK (periode) ditambah
+            // di baris bobot agar Excel jelas sumber nilainya.
+            $infoSumber = $first && ($first->sumber_nps || $first->sumber_npk)
+                ? " — Sumber NPS: {$first->sumber_nps} · NPK: {$first->sumber_npk}"
+                : '';
+            $sh->setCellValue('A6', "Bobot: Akademik {$bA}% · Kepribadian {$bK}% · Samapta {$bS}%{$infoSumber}");
             $sh->getStyle('A6')->applyFromArray([
                 'font'=>['size'=>10,'italic'=>true,'color'=>['rgb'=>'000000']],
                 'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],

@@ -9,6 +9,7 @@ class KompilasiNilai extends Model {
         'nilai_akademik', 'bobot_akademik',
         'nilai_kepribadian', 'bobot_kepribadian',
         'nilai_samapta', 'bobot_samapta',
+        'sumber_nps', 'sumber_npk',
         'nilai_akhir', 'predikat_angka', 'predikat_huruf', 'rank',
         'input_oleh',
     ];

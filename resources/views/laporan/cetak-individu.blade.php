@@ -239,7 +239,8 @@
 @php
   $npaCetak = $akademik ? round($akademik->npa, 2) : round($kompilasi?->nilai_akademik ?? 0, 2);
   $npkCetak = round($kepribadianAvg, 2);
-  $npsCetak = $samapta ? round($samapta->nilai_konversi ?? $samapta->nilai_akhir ?? 0, 2) : round($kompilasi?->nilai_samapta ?? 0, 2);
+  // Revisi 30 Sept 2026: NPS utk NPP = nilai konversi PUTARAN TERAKHIR (dari $npsAvg controller)
+  $npsCetak = $npsAvg ?? round($kompilasi?->nilai_samapta ?? 0, 2);
   $bA = $kompilasi?->bobot_akademik ?? 70;
   $bK = $kompilasi?->bobot_kepribadian ?? 20;
   $bS = $kompilasi?->bobot_samapta ?? 10;

@@ -208,6 +208,115 @@ class NilaiSamapta extends Model {
     }
 
     /**
+     * Revisi 30 September 2026 — PETA URUTAN PUTARAN (ascending) per angkatan.
+     * Gabungan label terdaftar di periode_nps (urut tanggal_mulai) + label
+     * yang hanya ada di data nilai_samapta (urut input terakhir), sehingga
+     * "putaran terakhir" selalu bisa ditentukan walau periode belum didaftarkan.
+     *
+     * @return array map: label putaran => urutan (0 = paling awal)
+     */
+    public static function putaranOrderMap(int $angkatanId): array
+    {
+        $labels = [];
+
+        // 1) Label terdaftar di periode_nps — urut tanggal mulai (lalu id).
+        $periodeLabels = \App\Models\PeriodeNps::where('angkatan_id', $angkatanId)
+            ->orderBy('tanggal_mulai')->orderBy('id')
+            ->pluck('label')->all();
+        foreach ($periodeLabels as $l) {
+            $l = self::normalizePutaran($l);
+            if (!in_array($l, $labels, true)) $labels[] = $l;
+        }
+
+        // 2) Label yang hanya ada di data nilai (belum didaftarkan) — urut
+        //    waktu input terakhir, diletakkan SETELAH label periode terdaftar.
+        $dataLabels = self::where('angkatan_id', $angkatanId)
+            ->whereNotNull('putaran_label')
+            ->selectRaw('putaran_label, MAX(created_at) as last_at')
+            ->groupBy('putaran_label')
+            ->orderBy('last_at')
+            ->pluck('putaran_label')->all();
+        foreach ($dataLabels as $l) {
+            $l = self::normalizePutaran($l);
+            if (!in_array($l, $labels, true)) $labels[] = $l;
+        }
+
+        if (empty($labels)) $labels[] = self::PUTARAN_DEFAULT;
+
+        return array_flip($labels); // label => index
+    }
+
+    /** Label putaran TERAKHIR untuk angkatan (keterangan "Sumber NPS"). */
+    public static function putaranTerakhirLabel(int $angkatanId): ?string
+    {
+        $map = self::putaranOrderMap($angkatanId);
+        if (empty($map)) return null;
+        $labels = array_keys($map);
+        return $labels[count($labels) - 1];
+    }
+
+    /**
+     * Revisi 30 September 2026 — NPS UNTUK NPP: AMBIL PUTARAN TERAKHIR.
+     * Sebelumnya NPP memakai rata-rata semua putaran; kini (sesuai permintaan
+     * WingDik) NPP memakai NILAI KONVERSI dari putaran TERBARU/TERAKHIR.
+     *
+     * - $putaranLabel null / '' / 'terakhir' → nilai konversi dari putaran
+     *   TERAKHIR yang dimiliki peserta (peserta yang absen di putaran terakhir
+     *   angkatan otomatis memakai putaran terakhir MILIKNYA).
+     * - $putaranLabel diisi label tertentu → nilai konversi putaran tsb.
+     * - Fallback nilai_akhir hanya untuk data lama tanpa nilai_konversi.
+     *
+     * @return array map: peserta_didik_id => nilai konversi NPS (float)
+     */
+    public static function npsUntukNppPerPeserta(int $angkatanId, $pesertaIds, ?string $putaranLabel = null): array
+    {
+        if (!$angkatanId || empty($pesertaIds)) return [];
+
+        $label = trim((string) $putaranLabel);
+        $pakaiLabelTertentu = ($label !== '' && strcasecmp($label, 'terakhir') !== 0);
+
+        $rows = self::where('angkatan_id', $angkatanId)
+            ->whereIn('peserta_didik_id', $pesertaIds)
+            ->get(['id', 'peserta_didik_id', 'putaran_label', 'nilai_konversi', 'nilai_akhir']);
+        if ($rows->isEmpty()) return [];
+
+        $orderMap = $pakaiLabelTertentu ? [] : self::putaranOrderMap($angkatanId);
+        $pilihan = [];
+
+        foreach ($rows as $r) {
+            $pid = $r->peserta_didik_id;
+            $rLabel = self::normalizePutaran($r->putaran_label);
+
+            if ($pakaiLabelTertentu) {
+                if (strcasecmp($rLabel, $label) !== 0) continue;
+                $lebihBaru = !isset($pilihan[$pid]) || $r->id > $pilihan[$pid]->id;
+            } else {
+                // Urutan putaran terbesar menang; seri → record terbaru (id).
+                $rOrd = $orderMap[$rLabel] ?? -1;
+                $c = $pilihan[$pid] ?? null;
+                $lebihBaru = !$c
+                    || $rOrd > ($orderMap[self::normalizePutaran($c->putaran_label)] ?? -1)
+                    || ($rOrd === ($orderMap[self::normalizePutaran($c->putaran_label)] ?? -1) && $r->id > $c->id);
+            }
+            if ($lebihBaru) $pilihan[$pid] = $r;
+        }
+
+        $hasil = [];
+        foreach ($pilihan as $pid => $r) {
+            $hasil[$pid] = round((float) ($r->nilai_konversi ?? $r->nilai_akhir ?? 0), 2);
+        }
+        return $hasil;
+    }
+
+    /** NPS untuk NPP satu peserta — putaran terakhir / putaran pilihan. */
+    public static function npsUntukNpp(?int $angkatanId, $pesertaId, ?string $putaranLabel = null): float
+    {
+        if (!$angkatanId || !$pesertaId) return 0.0;
+        $map = self::npsUntukNppPerPeserta($angkatanId, [$pesertaId], $putaranLabel);
+        return $map[(int) $pesertaId] ?? 0.0;
+    }
+
+    /**
      * Normalisasi label putaran: kosong → default. Menghindari NULL pada
      * unique key (peserta, angkatan, putaran_label) supaya upsert konsisten.
      */
