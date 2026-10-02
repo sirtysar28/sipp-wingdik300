@@ -270,14 +270,35 @@ class NilaiSamapta extends Model {
      */
     public static function npsUntukNppPerPeserta(int $angkatanId, $pesertaIds, ?string $putaranLabel = null): array
     {
+        $hasil = [];
+        foreach (self::pilihRecordUntukNppPerPeserta($angkatanId, $pesertaIds, $putaranLabel) as $pid => $r) {
+            $hasil[$pid] = round((float) ($r->nilai_konversi ?? $r->nilai_akhir ?? 0), 2);
+        }
+        return $hasil;
+    }
+
+    /**
+     * INTI PEMILIHAN RECORD NPS utk NPP (Revisi 2 Oktober 2026 dipisah agar
+     * bisa dipakai bersama): memilih SATU record nilai_samapta per peserta —
+     * dari putaran TERAKHIR (default) atau putaran tertentu — lalu
+     * mengembalikan map peserta_didik_id => MODEL record utuh.
+     */
+    private static function pilihRecordUntukNppPerPeserta(int $angkatanId, $pesertaIds, ?string $putaranLabel): array
+    {
         if (!$angkatanId || empty($pesertaIds)) return [];
 
         $label = trim((string) $putaranLabel);
         $pakaiLabelTertentu = ($label !== '' && strcasecmp($label, 'terakhir') !== 0);
 
+        // Revisi 2 Oktober 2026: kolom jarak_lari, nilai_lari & garjas_b_nilai
+        // WAJIB ikut di-select — method ini juga mengembalikan record utuh via
+        // recordUntukNpp() untuk kartu NPS pada Report Individual & PDF NPP
+        // individu. Tanpa 3 kolom ini, Jarak Lari / Nilai Lari (Garjas A) /
+        // Garjas B selalu tampil kosong ("-") di preview maupun PDF.
         $rows = self::where('angkatan_id', $angkatanId)
             ->whereIn('peserta_didik_id', $pesertaIds)
-            ->get(['id', 'peserta_didik_id', 'putaran_label', 'nilai_konversi', 'nilai_akhir']);
+            ->get(['id', 'peserta_didik_id', 'putaran_label', 'nilai_konversi', 'nilai_akhir',
+                   'jarak_lari', 'nilai_lari', 'garjas_b_nilai']);
         if ($rows->isEmpty()) return [];
 
         $orderMap = $pakaiLabelTertentu ? [] : self::putaranOrderMap($angkatanId);
@@ -301,11 +322,7 @@ class NilaiSamapta extends Model {
             if ($lebihBaru) $pilihan[$pid] = $r;
         }
 
-        $hasil = [];
-        foreach ($pilihan as $pid => $r) {
-            $hasil[$pid] = round((float) ($r->nilai_konversi ?? $r->nilai_akhir ?? 0), 2);
-        }
-        return $hasil;
+        return $pilihan;
     }
 
     /** NPS untuk NPP satu peserta — putaran terakhir / putaran pilihan. */
@@ -314,6 +331,22 @@ class NilaiSamapta extends Model {
         if (!$angkatanId || !$pesertaId) return 0.0;
         $map = self::npsUntukNppPerPeserta($angkatanId, [$pesertaId], $putaranLabel);
         return $map[(int) $pesertaId] ?? 0.0;
+    }
+
+    /**
+     * Revisi 2 Oktober 2026 — RECORD NPS UTAMA utk satu peserta (MODEL utuh,
+     * bukan sekadar angka). Dipakai kartu NPS pada Report Individual & PDF
+     * NPP individu agar data yang TAMPIL (jarak lari, garjas, nilai konversi,
+     * label putaran) berasal dari PUTARAN TERAKHIR — konsisten dengan nilai
+     * yang dipakai sebagai INPUT NPP. Sebelumnya query ->first() selalu
+     * mengambil record PUTARAN 1 sehingga kartu NPS individu menampilkan
+     * nilai lama (mis. 67.75) padahal NPP sudah memakai putaran 2 (79.78).
+     */
+    public static function recordUntukNpp(?int $angkatanId, $pesertaId, ?string $putaranLabel = null): ?self
+    {
+        if (!$angkatanId || !$pesertaId) return null;
+        $map = self::pilihRecordUntukNppPerPeserta($angkatanId, [$pesertaId], $putaranLabel);
+        return $map[(int) $pesertaId] ?? null;
     }
 
     /**

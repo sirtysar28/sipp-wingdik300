@@ -210,6 +210,11 @@
 
 {{-- C. Nilai Samapta --}}
 <div class="section-title">C. NILAI PRESTASI SAMAPTA</div>
+@if($samapta?->putaran_label)
+<div style="font-size:8pt;color:#555;margin-bottom:3px">
+  Sumber: <strong>{{ $samapta->putaran_label }}</strong> (putaran terakhir — nilai konversi dipakai sebagai input NPP)
+</div>
+@endif
 <table>
   @if($samapta)
   <tr>

@@ -70,7 +70,8 @@
 </div>
 
 @php
-  // Hitung ringkasan nilai akhir per peserta untuk rekap utama
+  // Hitung ringkasan nilai akhir per peserta untuk rekap utama.
+  // Revisi 2 Oktober 2026: acuan ranking = AKUMULATIF (Σ periode), bukan rata-rata.
   $nPer = $periodes->count();
   $sorted = [];
   foreach ($pesertaList as $p) {
@@ -81,9 +82,9 @@
       $vals[] = $v;
       if ($v !== null) { $total += $v; $cnt++; }
     }
-    $sorted[] = ['peserta' => $p, 'vals' => $vals, 'rata' => $cnt > 0 ? round($total/$cnt, 2) : null];
+    $sorted[] = ['peserta' => $p, 'vals' => $vals, 'akum' => $cnt > 0 ? round($total, 2) : null];
   }
-  usort($sorted, fn($a, $b) => ($b['rata'] ?? -999) <=> ($a['rata'] ?? -999));
+  usort($sorted, fn($a, $b) => ($b['akum'] ?? -999) <=> ($a['akum'] ?? -999));
 @endphp
 
 {{-- TABEL 1: REKAP NILAI AKHIR PER PERIODE --}}
@@ -97,7 +98,7 @@
       @foreach($periodes as $per)
       <th>{{ strtoupper($per->label) }}</th>
       @endforeach
-      <th style="background:#ffffff">Rata-rata</th>
+      <th style="background:#ffffff">Akumulatif</th>
       <th style="width:30px">Rank</th>
     </tr>
   </thead>
@@ -111,7 +112,7 @@
       @foreach($s['vals'] as $v)
       <td>{{ $v ?? '-' }}</td>
       @endforeach
-      <td style="background:#ffffff" class="bold">{{ $s['rata'] ?? '-' }}</td>
+      <td style="background:#ffffff" class="bold">{{ $s['akum'] ?? '-' }}</td>
       <td class="bold">{{ $i + 1 }}</td>
     </tr>
     @endforeach

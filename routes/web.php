@@ -65,6 +65,12 @@ Route::middleware(['auth', 'role:admin_kepribadian,admin'])->group(function () {
     // route /nilai/periode yang berbeda.
     Route::get('/kepribadian/periode/create',  [KepribadianController::class,'createPeriode'])->name('kepribadian.periode.create');
     Route::post('/kepribadian/periode',         [KepribadianController::class,'storePeriode'])->name('kepribadian.periode.store');
+    // Revisi 2 Oktober 2026: EDIT periode NPK (label & rentang tanggal) —
+    // data nilai di dalamnya tetap utuh. Route group ini diakses
+    // admin_kepribadian/admin; super_admin lolos via bypass RoleMiddleware,
+    // namun tombol & halaman edit dibatasi utk super_admin (lihat controller).
+    Route::get('/kepribadian/periode/{periode}/edit', [KepribadianController::class,'editPeriode'])->name('kepribadian.periode.edit');
+    Route::put('/kepribadian/periode/{periode}',      [KepribadianController::class,'updatePeriode'])->name('kepribadian.periode.update');
     // Revisi 26 Agustus 2026: hard delete periode NPK + seluruh isinya
     Route::delete('/kepribadian/periode/{periode}', [KepribadianController::class,'destroyPeriode'])->name('kepribadian.periode.destroy');
 

@@ -191,9 +191,14 @@ class ReportController extends Controller
                     return [
                         'peserta'             => $p,
                         'nilai_per_periode'   => $nilaiPerPeriode,
-                        'rata_rata'           => $cnt > 0 ? round($total / $cnt, 2) : null,
+                        // Revisi 2 Oktober 2026: kolom acuan ranking NPK diganti
+                        // dari RATA-RATA menjadi AKUMULATIF (Σ / sum) seluruh
+                        // periode — sesuai permintaan WingDik. Peserta yang
+                        // belum dinilai di satu periode otomatis punya akumulasi
+                        // lebih kecil (tidak ada pembagi jumlah periode).
+                        'akumulatif'          => $cnt > 0 ? round($total, 2) : null,
                     ];
-                })->sortByDesc('rata_rata')->values();
+                })->sortByDesc('akumulatif')->values();
             }
 
             return view('report.report-npk', array_merge(compact(
@@ -286,7 +291,12 @@ class ReportController extends Controller
             if ($peserta) {
                 $akademik = NilaiAkademik::where('peserta_didik_id', $pesertaId)->where('angkatan_id', $angkatanId)->first();
                 $kepribadianList = NilaiKepribadian::with('periode','detail.aspek')->where('peserta_didik_id', $pesertaId)->orderBy('periode_nilai_id')->get();
-                $samapta = NilaiSamapta::where('peserta_didik_id', $pesertaId)->where('angkatan_id', $angkatanId)->first();
+                // Revisi 2 Oktober 2026: kartu NPS pada Report Individual kini
+                // memakai record dari PUTARAN TERAKHIR (bukan ->first() yang
+                // selalu mengambil Putaran 1), sehingga jarak lari/garjas/nilai
+                // konversi/label putaran yang tampil = putaran yang sama dengan
+                // nilai NPS yang dipakai sebagai INPUT NPP ($npsAvg).
+                $samapta = NilaiSamapta::recordUntukNpp($angkatanId, $pesertaId);
                 // Revisi 30 Sept 2026: NPP individu memakai nilai konversi NPS
                 // dari PUTARAN TERAKHIR & NPK dari PERIODE TERAKHIR (konsisten
                 // dengan NppCalculator / halaman NPP).
@@ -744,10 +754,11 @@ class ReportController extends Controller
             $this->infoPenandatanganExcel($sh, 'A2', 'kepribadian', $angkatan?->skadik_id);
 
             // Header — urutan kolom sama seperti preview (Rank, Nama, Pangkat, NRP, …)
+            // Revisi 2 Oktober 2026: kolom acuan = AKUMULATIF (Σ periode), bukan rata-rata.
             $headers = array_merge(
                 ['No', 'Rank', 'Nama', 'Pangkat', 'NRP'],
                 $periodes->map(fn($p) => strtoupper($p->label))->all(),
-                ['Rata-rata']
+                ['Akumulatif']
             );
             foreach ($headers as $col => $h) {
                 $sh->setCellValue($colName($col + 1) . '4', $h);
@@ -766,7 +777,8 @@ class ReportController extends Controller
             for ($i = 0; $i < $nPer; $i++) $sh->getColumnDimension($colName(6 + $i))->setWidth(14);
             $sh->getColumnDimension($colRata)->setWidth(12);
 
-            // Data — urut rata-rata desc (yang belum dinilai di akhir), spt preview
+            // Data — urut AKUMULATIF (Σ periode) desc (yang belum dinilai di akhir), spt preview
+            // Revisi 2 Oktober 2026: pengganti rata-rata sebagai acuan ranking.
             $sorted = [];
             foreach ($pesertaList as $p) {
                 $vals = []; $total = 0; $cnt = 0;
@@ -776,9 +788,9 @@ class ReportController extends Controller
                     $vals[] = $v;
                     if ($v !== null) { $total += $v; $cnt++; }
                 }
-                $sorted[] = ['peserta' => $p, 'vals' => $vals, 'rata' => $cnt > 0 ? round($total / $cnt, 2) : null];
+                $sorted[] = ['peserta' => $p, 'vals' => $vals, 'akum' => $cnt > 0 ? round($total, 2) : null];
             }
-            usort($sorted, fn($a, $b) => ($b['rata'] ?? -999) <=> ($a['rata'] ?? -999));
+            usort($sorted, fn($a, $b) => ($b['akum'] ?? -999) <=> ($a['akum'] ?? -999));
 
             foreach ($sorted as $i => $s) {
                 $r = $i + 5;
@@ -791,7 +803,7 @@ class ReportController extends Controller
                     $sh->setCellValue($colName(6 + $j) . "{$r}", $v ?? '-');
                     $sh->getStyle($colName(6 + $j) . "{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 }
-                $sh->setCellValue("{$colRata}{$r}", $s['rata'] ?? '-');
+                $sh->setCellValue("{$colRata}{$r}", $s['akum'] ?? '-');
                 $sh->getStyle("{$colRata}{$r}")->applyFromArray([
                     'font'=>['bold'=>true,'color'=>['rgb'=>ExportFile::TEXT_BLACK]],
                     'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
@@ -799,19 +811,20 @@ class ReportController extends Controller
                 ]);
             }
 
-            // Baris footer "Rata-rata Angkatan" — sama seperti tfoot preview
+            // Baris footer "Akumulatif Angkatan" — Revisi 2 Oktober 2026: SUM
+            // (Σ) seluruh peserta per periode + total akumulatif, konsisten dgn preview.
             if (count($sorted) > 0) {
                 $r = count($sorted) + 5;
                 $sh->mergeCells("A{$r}:E{$r}");
-                $sh->setCellValue("A{$r}", 'Rata-rata Angkatan');
+                $sh->setCellValue("A{$r}", 'Akumulatif Angkatan');
                 $sh->getStyle("A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
                 foreach ($periodes as $j => $per) {
-                    $avgPer = collect($sorted)->map(fn($s) => $s['vals'][$j] ?? null)->filter()->avg();
-                    $sh->setCellValue($colName(6 + $j) . "{$r}", $avgPer ? round($avgPer, 2) : '-');
+                    $sumPer = collect($sorted)->map(fn($s) => $s['vals'][$j] ?? null)->filter()->sum();
+                    $sh->setCellValue($colName(6 + $j) . "{$r}", $sumPer > 0 ? round($sumPer, 2) : '-');
                     $sh->getStyle($colName(6 + $j) . "{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 }
-                $avgAll = collect($sorted)->map(fn($s) => $s['rata'])->filter()->avg();
-                $sh->setCellValue("{$colRata}{$r}", $avgAll ? round($avgAll, 2) : '-');
+                $sumAll = collect($sorted)->map(fn($s) => $s['akum'])->filter()->sum();
+                $sh->setCellValue("{$colRata}{$r}", $sumAll > 0 ? round($sumAll, 2) : '-');
                 $sh->getStyle("{$colRata}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 $sh->getStyle("A{$r}:{$colRata}{$r}")->applyFromArray([
                     'font'=>['bold'=>true,'color'=>['rgb'=>ExportFile::TEXT_BLACK]],

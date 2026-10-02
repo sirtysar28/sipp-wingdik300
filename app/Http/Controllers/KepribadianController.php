@@ -323,6 +323,53 @@ class KepribadianController extends Controller
     }
 
     /**
+     * Revisi 2 Oktober 2026 — FORM EDIT PERIODE NPK (khusus SUPERADMIN).
+     * Mengubah label & rentang tanggal periode TANPA menyentuh data nilai
+     * kepribadian di dalamnya (beda dengan hard delete).
+     */
+    public function editPeriode(Request $request, PeriodeNilai $periode)
+    {
+        if (!auth()->user()->isSuperAdmin()) {
+            abort(403, 'Hanya Superadmin yang dapat mengedit periode NPK.');
+        }
+
+        $periode->load('angkatan.skadik.lemdik');
+        return view('kepribadian.edit-periode', [
+            'periode'   => $periode,
+            'backRoute' => $request->get('back') ?: route('report.npk', ['angkatan_id' => $periode->angkatan_id, 'tampilkan' => 1]),
+        ]);
+    }
+
+    /**
+     * Revisi 2 Oktober 2026 — SIMPAN EDIT PERIODE NPK (khusus SUPERADMIN).
+     * Hanya label + rentang tanggal yang bisa diubah; seluruh data nilai
+     * kepribadian pada periode tsb tetap utuh.
+     */
+    public function updatePeriode(Request $request, PeriodeNilai $periode)
+    {
+        if (!auth()->user()->isSuperAdmin()) {
+            abort(403, 'Hanya Superadmin yang dapat mengedit periode NPK.');
+        }
+
+        $data = $request->validate([
+            'label'         => 'required|string|max:50',
+            'tanggal_mulai' => 'required|date',
+            'tanggal_selesai' => 'required|date|after:tanggal_mulai',
+        ]);
+
+        $periode->update($data);
+
+        $msg = 'Periode "' . $data['label'] . '" berhasil diperbarui (data nilai tidak berubah).';
+        $target = $request->input('redirect');
+        if ($target && !preg_match('#^https?://#i', $target)) {
+            return redirect()->to($target)->with('success', $msg);
+        }
+        return redirect()
+            ->route('report.npk', ['angkatan_id' => $periode->angkatan_id, 'tampilkan' => 1])
+            ->with('success', $msg);
+    }
+
+    /**
      * HARD DELETE periode NPK beserta seluruh isinya.
      * Revisi 26 Agustus 2026: periode uji coba (mis. Periode 1 & 6) yang
      * sudah tidak terpakai masih tampil di Report NPK — fitur ini menghapus

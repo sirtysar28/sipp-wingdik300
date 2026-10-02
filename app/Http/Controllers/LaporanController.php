@@ -78,15 +78,18 @@ class LaporanController extends Controller
             $mataPelajaran = \App\Models\MataPelajaran::forSkadik($angkatan->skadik_id, true);
         }
 
-        $samapta = NilaiSamapta::where('peserta_didik_id', $pesertaId)
-            ->where('angkatan_id', $angkatanId)->first();
-
-        // Revisi 30 Sept 2026: NPP memakai nilai konversi NPS dari PUTARAN
-        // TERAKHIR & NPK dari PERIODE TERAKHIR (konsisten dengan halaman NPP).
+        // Revisi 2 Oktober 2026: tabel NPS pada PDF individu kini memakai
+        // record dari PUTARAN TERAKHIR (bukan ->first() = Putaran 1), sehingga
+        // jarak lari/garjas/nilai konversi yang dicetak = putaran yang sama
+        // dengan nilai NPS yang dipakai sebagai INPUT NPP ($npsAvg).
         // Sumber bisa dipilih via param URL dari halaman Report NPP.
         $npsPutaran  = NppCalculator::normalizeSumber($request->get('nps_putaran'));
         $npkPeriode  = NppCalculator::normalizeSumber($request->get('npk_periode'));
         $npkPeriodeId = $npkPeriode !== null ? (int) $npkPeriode : null;
+        $samapta = NilaiSamapta::recordUntukNpp($angkatanId, $pesertaId, $npsPutaran);
+
+        // Revisi 30 Sept 2026: NPP memakai nilai konversi NPS dari PUTARAN
+        // TERAKHIR & NPK dari PERIODE TERAKHIR (konsisten dengan halaman NPP).
         $npsAvg = NilaiSamapta::npsUntukNpp($angkatanId, $pesertaId, $npsPutaran);
 
         $kepribadianList = NilaiKepribadian::with('periode', 'detail.aspek')

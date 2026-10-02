@@ -156,9 +156,12 @@
   <div class="card" style="border-top:4px solid #ea580c">
     <div class="card-title" style="color:#ea580c">NPS — Nilai Prestasi Samapta</div>
     @if($samapta)
-      <div style="font-size:28px;font-weight:700;color:#ea580c;margin-bottom:8px">{{ $samapta->nilai_akhir }}</div>
+      {{-- Revisi 2 Okt 2026: $samapta kini = record PUTARAN TERAKHIR (controller),
+           dan angka utama kartu = NILAI KONVERSI (NPS) — nilai yang sama yang
+           dipakai sebagai input NPP. --}}
+      <div style="font-size:28px;font-weight:700;color:#ea580c;margin-bottom:8px">{{ $samapta->nilai_konversi ?? $samapta->nilai_akhir }}</div>
       @if($samapta->putaran_label)
-      <div style="font-size:11px;color:#888;margin-bottom:6px">Putaran: <strong>{{ $samapta->putaran_label }}</strong></div>
+      <div style="font-size:11px;color:#888;margin-bottom:6px">Putaran: <strong>{{ $samapta->putaran_label }}</strong> <span style="color:#aaa">(putaran terakhir — sumber NPP)</span></div>
       @endif
       <div style="margin-top:12px">
         <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #f0f0f5;font-size:11px">
