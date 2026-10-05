@@ -52,8 +52,11 @@
         .header-center { width: 27%; }
         .header-right  { width: 35%; }
         .institution {
+            display: inline-block;   /* garis bawah selebar teks saja, bukan selebar kolom */
             font-size: 8.5pt; font-weight: bold;
             line-height: 1.15; text-transform: uppercase;
+            border-bottom: 0.35mm solid #000;
+            padding-bottom: 0.6mm;
         }
 
         /* =========================================================
