@@ -178,7 +178,16 @@ class ReportController extends Controller
                         return $p;
                     })->values();
 
-                $data = $pesertaList->map(function ($p) use ($periodes, $semuaNilai) {
+                // Revisi 19 Oktober 2026: RANKING NPK kini diambil dari nilai
+                // PERIODE TERAKHIR — nilai yang sama persis dengan yang masuk
+                // ke perhitungan NPP (NilaiKepribadian::npkUntukNppPerPeserta
+                // mode "terakhir"), BUKAN dari akumulatif (Σ seluruh periode).
+                // Peserta tanpa nilai sama sekali tetap tampil di urutan bawah.
+                $npkTerakhirMap = NilaiKepribadian::npkUntukNppPerPeserta(
+                    $pesertaList->pluck('id'), null, $angkatanId
+                );
+
+                $data = $pesertaList->map(function ($p) use ($periodes, $semuaNilai, $npkTerakhirMap) {
                     $nilaiPerPeriode = [];
                     $total = 0;
                     $cnt = 0;
@@ -191,14 +200,15 @@ class ReportController extends Controller
                     return [
                         'peserta'             => $p,
                         'nilai_per_periode'   => $nilaiPerPeriode,
-                        // Revisi 2 Oktober 2026: kolom acuan ranking NPK diganti
-                        // dari RATA-RATA menjadi AKUMULATIF (Σ / sum) seluruh
-                        // periode — sesuai permintaan WingDik. Peserta yang
-                        // belum dinilai di satu periode otomatis punya akumulasi
-                        // lebih kecil (tidak ada pembagi jumlah periode).
+                        // Revisi 2 Oktober 2026: kolom AKUMULATIF (Σ periode)
+                        // tetap ditampilkan sebagai INFORMASI tambahan, tetapi
+                        // sejak 19 Okt 2026 BUKAN lagi acuan ranking.
                         'akumulatif'          => $cnt > 0 ? round($total, 2) : null,
+                        // Revisi 19 Oktober 2026: ACUAN RANKING — NPK periode
+                        // terakhir (sumber komponen NPK pada NPP).
+                        'npk_terakhir'        => $npkTerakhirMap[$p->id] ?? null,
                     ];
-                })->sortByDesc('akumulatif')->values();
+                })->sortByDesc(fn($r) => $r['npk_terakhir'] ?? -1)->values();
             }
 
             return view('report.report-npk', array_merge(compact(
@@ -735,10 +745,17 @@ class ReportController extends Controller
                 $nilaiIndex[$nk->peserta_didik_id][$nk->periode_nilai_id] = $nk;
             }
 
+            // Revisi 19 Oktober 2026: NPK PERIODE TERAKHIR — acuan ranking,
+            // konsisten dengan preview & nilai yang masuk ke perhitungan NPP.
+            $npkTerakhirMap = NilaiKepribadian::npkUntukNppPerPeserta(
+                $pesertaList->pluck('id'), null, $angkatanId
+            );
+
             $spreadsheet = new Spreadsheet();
             ExportFile::plain($spreadsheet); // font default: Arial (revisi 21 Sept 2026)
             $colName = fn(int $i) => \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
-            $colRata = $colName(6 + $nPer); // setelah No, Rank, Nama, Pangkat, NRP + n periode
+            $colNpk = $colName(6 + $nPer);  // NPK terakhir (acuan rank) — setelah No, Rank, Nama, Pangkat, NRP + n periode
+            $colRata = $colName(7 + $nPer); // Akumulatif (informasi tambahan)
 
             // ===================== SHEET 1: REKAP NPK =====================
             $sh = $spreadsheet->getActiveSheet()->setTitle('Report NPK');
@@ -754,11 +771,12 @@ class ReportController extends Controller
             $this->infoPenandatanganExcel($sh, 'A2', 'kepribadian', $angkatan?->skadik_id);
 
             // Header — urutan kolom sama seperti preview (Rank, Nama, Pangkat, NRP, …)
-            // Revisi 2 Oktober 2026: kolom acuan = AKUMULATIF (Σ periode), bukan rata-rata.
+            // Revisi 19 Oktober 2026: acuan ranking = NPK PERIODE TERAKHIR
+            // (nilai yang masuk ke NPP); Akumulatif hanya informasi tambahan.
             $headers = array_merge(
                 ['No', 'Rank', 'Nama', 'Pangkat', 'NRP'],
                 $periodes->map(fn($p) => strtoupper($p->label))->all(),
-                ['Akumulatif']
+                ['NPK Terakhir (Acuan Rank)', 'Akumulatif']
             );
             foreach ($headers as $col => $h) {
                 $sh->setCellValue($colName($col + 1) . '4', $h);
@@ -775,10 +793,12 @@ class ReportController extends Controller
             $sh->getColumnDimension('D')->setWidth(14);
             $sh->getColumnDimension('E')->setWidth(18);
             for ($i = 0; $i < $nPer; $i++) $sh->getColumnDimension($colName(6 + $i))->setWidth(14);
+            $sh->getColumnDimension($colNpk)->setWidth(16);
             $sh->getColumnDimension($colRata)->setWidth(12);
 
-            // Data — urut AKUMULATIF (Σ periode) desc (yang belum dinilai di akhir), spt preview
-            // Revisi 2 Oktober 2026: pengganti rata-rata sebagai acuan ranking.
+            // Data — Revisi 19 Oktober 2026: urut NPK PERIODE TERAKHIR desc
+            // (konsisten dgn preview & sumber komponen NPK pada NPP); peserta
+            // tanpa nilai kepribadian diletakkan di urutan paling bawah.
             $sorted = [];
             foreach ($pesertaList as $p) {
                 $vals = []; $total = 0; $cnt = 0;
@@ -788,9 +808,14 @@ class ReportController extends Controller
                     $vals[] = $v;
                     if ($v !== null) { $total += $v; $cnt++; }
                 }
-                $sorted[] = ['peserta' => $p, 'vals' => $vals, 'akum' => $cnt > 0 ? round($total, 2) : null];
+                $sorted[] = [
+                    'peserta' => $p,
+                    'vals'    => $vals,
+                    'akum'    => $cnt > 0 ? round($total, 2) : null,
+                    'akhir'   => $npkTerakhirMap[$p->id] ?? null,
+                ];
             }
-            usort($sorted, fn($a, $b) => ($b['akum'] ?? -999) <=> ($a['akum'] ?? -999));
+            usort($sorted, fn($a, $b) => ($b['akhir'] ?? -999) <=> ($a['akhir'] ?? -999));
 
             foreach ($sorted as $i => $s) {
                 $r = $i + 5;
@@ -803,6 +828,12 @@ class ReportController extends Controller
                     $sh->setCellValue($colName(6 + $j) . "{$r}", $v ?? '-');
                     $sh->getStyle($colName(6 + $j) . "{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 }
+                $sh->setCellValue("{$colNpk}{$r}", $s['akhir'] ?? '-');
+                $sh->getStyle("{$colNpk}{$r}")->applyFromArray([
+                    'font'=>['bold'=>true,'color'=>['rgb'=>ExportFile::TEXT_BLACK],'size'=>12],
+                    'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
+                    'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
+                ]);
                 $sh->setCellValue("{$colRata}{$r}", $s['akum'] ?? '-');
                 $sh->getStyle("{$colRata}{$r}")->applyFromArray([
                     'font'=>['bold'=>true,'color'=>['rgb'=>ExportFile::TEXT_BLACK]],
@@ -830,6 +861,17 @@ class ReportController extends Controller
                     'font'=>['bold'=>true,'color'=>['rgb'=>ExportFile::TEXT_BLACK]],
                     'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>ExportFile::BG_PLAIN]],
                 ]);
+
+                // Revisi 19 Oktober 2026: baris keterangan acuan ranking agar
+                // pembaca Excel paham urutan memakai NPK periode terakhir.
+                $rn = $r + 1;
+                $labelTerakhir = $periodes->last()?->label ?? '-';
+                $sh->mergeCells("A{$rn}:{$colRata}{$rn}");
+                $sh->setCellValue("A{$rn}", "Ranking diurutkan berdasarkan kolom 'NPK Terakhir' (nilai NPK periode terakhir: {$labelTerakhir}) — nilai yang sama yang dipakai sebagai komponen NPK pada perhitungan NPP. Kolom 'Akumulatif' hanya informasi tambahan.");
+                $sh->getStyle("A{$rn}")->applyFromArray([
+                    'font'=>['italic'=>true,'size'=>9,'color'=>['rgb'=>'000000']],
+                    'alignment'=>['horizontal'=>Alignment::HORIZONTAL_LEFT],
+                ]);
             }
 
             // ============ SHEET 2: DETAIL PARAMETER (spt Tabel 2 PDF) ============
@@ -841,6 +883,10 @@ class ReportController extends Controller
                 $nAspek = $aspekList->count();
                 $lastCol2 = $colName(2 + ($nAspek + 1) * $nPer);
 
+                // Revisi 25 Oktober 2026: nilai awal NPK per jenjang sekolah
+                // (80 utk Sekolah Perwira, 75 utk Bintara/Tamtama/PNS)
+                $nilaiAwalNpk = NilaiKepribadian::nilaiAwalUntukAngkatan($angkatan);
+
                 $sh2->mergeCells("A1:{$lastCol2}1");
                 $sh2->setCellValue('A1', 'TABEL DETAIL PARAMETER NILAI KEPRIBADIAN — ' . $angkatan?->skadik?->nama . ' Angkatan ' . $angkatan?->nomor_angkatan);
                 $sh2->getStyle('A1')->applyFromArray([
@@ -849,7 +895,7 @@ class ReportController extends Controller
                     'alignment'=>['horizontal'=>Alignment::HORIZONTAL_CENTER],
                 ]);
                 $sh2->mergeCells("A2:{$lastCol2}2");
-                $sh2->setCellValue('A2', 'Keterangan: BS = Baik Sekali (+0,5) · B = Baik (+0,25) · C = Cukup (0) · K = Kurang (-0,25) · KS = Kurang Sekali (-0,5) | Nilai Akhir = 75 + Σ poin');
+                $sh2->setCellValue('A2', 'Keterangan: BS = Baik Sekali (+0,5) · B = Baik (+0,25) · C = Cukup (0) · K = Kurang (-0,25) · KS = Kurang Sekali (-0,5) | Nilai Akhir = ' . $nilaiAwalNpk . ' + Σ poin');
                 $sh2->getStyle('A2')->getFont()->setItalic(true)->setSize(9);
 
                 // Header: No, Nama, lalu per periode → per aspek (vertikal) + kolom AKHIR

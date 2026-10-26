@@ -10,6 +10,11 @@
    class="btn btn-outline btn-sm">⬇ Ekspor XLSX</a>
 @endif
 <a href="{{ route('kepribadian.aspek') }}" class="btn btn-outline btn-sm">⚙ Kelola Aspek</a>
+{{-- Revisi 6 Okt 2026: buat periode langsung dari halaman input NPK
+     (sebelumnya hanya ada di module Nilai/NPA) --}}
+@if(auth()->user()->isAdminKepribadian() || auth()->user()->canSeeAll())
+<a href="{{ route('kepribadian.periode.create') }}" class="btn btn-outline btn-sm">+ Periode Baru</a>
+@endif
 @endsection
 
 @section('content')
@@ -53,6 +58,89 @@
     </div>
   </form>
 </div>
+
+{{-- ── KELOLA PERIODE — GLOBAL SEMUA SEKOLAH (Revisi 6 Oktober 2026) ──
+     Sebelumnya tombol ✏️ Edit Periode HANYA ada di halaman Report NPK
+     (kartu "Kelola Periode"), sehingga pada beberapa sekolah/angkatan
+     (mis. Lisment angkatan 24) tombol tsb tidak ditemukan user.
+     Kini kartu kelola periode juga tampil DI HALAMAN INPUT NPK ini untuk
+     SEMUA sekolah & angkatan yang dipilih:
+     • Superadmin → ✏️ Edit label & rentang tanggal periode (nilai utuh)
+     • Danflight/Opsdik/Superadmin → 🗑️ Hard Delete periode
+     Back-link relatif agar setelah simpan kembali ke konteks halaman ini. --}}
+@php
+  $kelolaPeriodeRole = auth()->user()->isAdminKepribadian() || auth()->user()->canSeeAll();
+  $backKelola        = request()->getPathInfo() . (count(request()->query()) ? '?' . http_build_query(request()->query()) : '');
+@endphp
+@if($kelolaPeriodeRole && $angkatanId)
+<details class="card" style="margin-bottom:16px;border:1px solid {{ auth()->user()->isSuperAdmin() ? '#c7d2fe' : '#fecaca' }};background:{{ auth()->user()->isSuperAdmin() ? '#f8faff' : '#fff7f7' }}">
+  <summary style="cursor:pointer;font-weight:600;font-size:13px;color:{{ auth()->user()->isSuperAdmin() ? '#4f46e5' : '#b91c1c' }};padding:4px 0">
+    ✏️ Kelola Periode ({{ auth()->user()->isSuperAdmin() ? 'Edit + ' : '' }}Hapus Permanen) — {{ $periodes->count() }} periode terdaftar
+  </summary>
+  <div style="margin-top:12px;font-size:12px;color:#888;line-height:1.5">
+    @if(auth()->user()->isSuperAdmin())
+    <strong style="color:#4f46e5">✏️ Edit</strong> hanya mengubah label &amp; rentang tanggal periode (mis. ganti
+    &ldquo;Periode 4&rdquo; → &ldquo;Periode 1&rdquo;) — seluruh data nilai kepribadian di dalamnya tetap utuh.
+    Berlaku untuk <strong>semua sekolah &amp; angkatan</strong> (khusus Superadmin).<br>
+    @endif
+    Menghapus periode akan <strong style="color:#dc2626">menghapus permanen (hard delete)</strong> periode
+    beserta seluruh data nilai kepribadian di dalamnya.
+  </div>
+  @if($periodes->count() > 0)
+  <div class="table-wrap" style="margin-top:10px">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:center">No</th>
+          <th>Label Periode</th>
+          <th style="text-align:center">Rentang Tanggal</th>
+          <th style="text-align:center">Jumlah Data Nilai</th>
+          <th style="text-align:center">Status</th>
+          <th style="text-align:center">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach($periodes as $i => $per)
+        <tr>
+          <td style="text-align:center">{{ $i + 1 }}</td>
+          <td><strong>{{ $per->label }}</strong></td>
+          <td style="text-align:center;font-size:12px">
+            {{ $per->tanggal_mulai?->format('d M Y') }} – {{ $per->tanggal_selesai?->format('d M Y') }}
+          </td>
+          <td style="text-align:center">{{ $per->jumlah_nilai ?? 0 }} nilai</td>
+          <td style="text-align:center">
+            @if($per->aktif)
+              <span class="badge badge-green">Aktif</span>
+            @else
+              <span class="badge" style="background:#f3f4f6;color:#666">Non-aktif</span>
+            @endif
+          </td>
+          <td style="text-align:center">
+            <div style="display:flex;gap:6px;justify-content:center;align-items:center">
+              @if(auth()->user()->isSuperAdmin())
+                <a href="{{ route('kepribadian.periode.edit', ['periode' => $per->id, 'back' => $backKelola]) }}" class="btn btn-sm btn-outline" title="Edit Periode (Superadmin)">✏️ Edit</a>
+              @endif
+              <form method="POST" action="{{ route('kepribadian.periode.destroy', $per->id) }}"
+                    onsubmit="return confirm('HAPUS PERMANEN periode {{ $per->label }} beserta {{ $per->jumlah_nilai ?? 0 }} data nilai kepribadian?\nTindakan ini TIDAK bisa dibatalkan.')">
+                @csrf @method('DELETE')
+                <input type="hidden" name="redirect" value="/kepribadian?skadik_id={{ $skadikId }}&amp;angkatan_id={{ $angkatanId }}">
+                <button type="submit" class="btn btn-danger btn-sm">🗑️ Hard Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        @endforeach
+      </tbody>
+    </table>
+  </div>
+  @else
+  <div class="empty-state" style="padding:24px">
+    Belum ada periode untuk <strong>{{ $angkatan?->skadik?->nama ?? 'sekolah ini' }}, Angkatan {{ $angkatan?->nomor_angkatan }}</strong>.
+    <a href="{{ route('kepribadian.periode.create') }}" style="color:#4f46e5">→ Buat periode baru</a>
+  </div>
+  @endif
+</details>
+@endif
 
 @if(!$angkatanId)
 {{-- Belum pilih angkatan --}}
@@ -135,8 +223,8 @@
             @if($p->kep)
               @php
                 $val = $p->kep->nilai_akhir;
-                $color = $val >= 78 ? '#059669' : ($val >= 76 ? '#4f46e5' : ($val >= 75 ? '#d97706' : '#dc2626'));
-                $bg    = $val >= 78 ? '#ecfdf5' : ($val >= 76 ? '#eef2ff' : ($val >= 75 ? '#fffbeb' : '#fee2e2'));
+                $color = $val >= $nilaiAwal+3 ? '#059669' : ($val >= $nilaiAwal+1 ? '#4f46e5' : ($val >= $nilaiAwal ? '#d97706' : '#dc2626'));
+                $bg    = $val >= $nilaiAwal+3 ? '#ecfdf5' : ($val >= $nilaiAwal+1 ? '#eef2ff' : ($val >= $nilaiAwal ? '#fffbeb' : '#fee2e2'));
               @endphp
               <span style="display:inline-block;padding:3px 12px;border-radius:99px;font-size:13px;font-weight:600;background:{{ $bg }};color:{{ $color }}">
                 {{ $val }}

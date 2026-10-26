@@ -95,7 +95,7 @@
         <span style="font-size:12px;font-weight:600;color:{{ $color }}">{{ $poin }}</span>
       </div>
       @endforeach
-      <div style="font-size:11px;color:#888;margin-top:8px">Nilai awal: <strong>75</strong> | Maks: 80 | Min: 70</div>
+      <div style="font-size:11px;color:#888;margin-top:8px">Nilai awal: <strong>80</strong> (Sekolah Perwira) / <strong>75</strong> (Bintara, Tamtama &amp; PNS)</div>
     </div>
   </div>
 </div>

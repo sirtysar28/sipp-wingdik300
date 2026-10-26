@@ -98,6 +98,10 @@ class KepribadianController extends Controller
         $sheet->getRowDimension(6)->setRowHeight(20);
         $sheet->getRowDimension(7)->setRowHeight(50);
 
+        // Revisi 25 Oktober 2026: kolom NILAI AWAL mengikuti jenjang sekolah
+        // (80 utk Sekolah Perwira, 75 utk Bintara/Tamtama/PNS — dulu hardcode 75).
+        $nilaiAwal = NilaiKepribadian::nilaiAwalUntukAngkatan($angkatan);
+
         foreach ($pesertaList as $pi => $p) {
             $row = $pi + 8;
             $nk  = $p->nilaiKepribadian->first();
@@ -108,7 +112,7 @@ class KepribadianController extends Controller
             $sheet->setCellValue("C{$row}", $p->pangkat);
             ExportFile::setText($sheet, "D{$row}", $p->nrp);
             ExportFile::setText($sheet, "E{$row}", $p->nosis ?? '');
-            $sheet->setCellValue("F{$row}", 75);
+            $sheet->setCellValue("F{$row}", $nilaiAwal);
 
             foreach ($aspekList as $i => $aspek) {
                 $col      = chr(71 + $i);
@@ -163,7 +167,17 @@ class KepribadianController extends Controller
 
         $angkatanId  = $request->get('angkatan_id', $allAngkatan->first()?->id);
         $angkatan    = Angkatan::find($angkatanId);
-        $periodes    = $angkatanId ? PeriodeNilai::where('angkatan_id', $angkatanId)->orderBy('tanggal_mulai')->get() : collect();
+
+        // Revisi 25 Oktober 2026: nilai awal NPK per jenjang sekolah
+        // (80 utk Sekolah Perwira, 75 utk Bintara/Tamtama/PNS) — dipakai
+        // utk skala warna nilai di tabel agar relatif thd nilai awal.
+        $nilaiAwal   = NilaiKepribadian::nilaiAwalUntukAngkatan($angkatan);
+        // Revisi 6 Oktober 2026: withCount jumlah nilai agar kartu "Kelola
+        // Periode" di index NPK bisa menampilkan jumlah data tiap periode
+        // (selaras dengan kartu di Report NPK).
+        $periodes    = $angkatanId ? PeriodeNilai::where('angkatan_id', $angkatanId)
+            ->withCount('nilaiKepribadian as jumlah_nilai')
+            ->orderBy('tanggal_mulai')->get() : collect();
         $periodeId   = $request->get('periode_id', $periodes->last()?->id);
         $periode     = PeriodeNilai::find($periodeId);
         $periodeAktif = $periodes->where('aktif', true)->last() ?? $periodes->last();
@@ -193,7 +207,7 @@ class KepribadianController extends Controller
         }
 
         return view('kepribadian.index', compact(
-            'allSkadik','skadikId','allAngkatan','angkatan','angkatanId',
+            'allSkadik','skadikId','allAngkatan','angkatan','angkatanId','nilaiAwal',
             'periodes','periodeId','periode','periodeAktif','peserta','sudahDiinput'
         ));
     }
@@ -205,7 +219,13 @@ class KepribadianController extends Controller
         $aspekList      = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
         $existing       = NilaiKepribadian::where('peserta_didik_id', $peserta->id)->where('periode_nilai_id', $periodeId)->with('detail')->first();
         $existingDetail = $existing ? $existing->detail->keyBy('aspek_kepribadian_id') : collect();
-        return view('kepribadian.form', compact('peserta','periode','periodeId','aspekList','existing','existingDetail'));
+
+        // Revisi 25 Oktober 2026: nilai awal NPK mengikuti jenjang sekolah —
+        // 80 utk Sekolah Perwira, 75 utk Bintara/Tamtama/PNS (sebelumnya hardcode 75).
+        $peserta->load('angkatan.skadik');
+        $nilaiAwal = NilaiKepribadian::nilaiAwalUntukAngkatan($peserta->angkatan);
+
+        return view('kepribadian.form', compact('peserta','periode','periodeId','aspekList','existing','existingDetail','nilaiAwal'));
     }
 
     public function store(Request $request, PesertaDidik $peserta)
@@ -213,7 +233,10 @@ class KepribadianController extends Controller
         $request->validate(['periode_nilai_id'=>'required|exists:periode_nilai,id','kriteria'=>'required|array','kriteria.*'=>'required|in:KS,K,C,B,BS','penjelasan'=>'nullable|string|max:2000','rekomendasi'=>'nullable|string|max:1000']);
         DB::transaction(function () use ($request, $peserta) {
             $totalPoin  = collect($request->kriteria)->sum(fn($k) => NilaiKepribadian::poinKriteria($k));
-            $nilaiAkhir = round(75 + $totalPoin, 2);
+            // Revisi 25 Oktober 2026: nilai awal dinamis — 80 utk Sekolah
+            // Perwira, 75 utk Bintara/Tamtama/PNS (sebelumnya hardcode 75).
+            $nilaiAwal  = NilaiKepribadian::nilaiAwalUntukAngkatan($peserta->angkatan);
+            $nilaiAkhir = round($nilaiAwal + $totalPoin, 2);
             $nk = NilaiKepribadian::updateOrCreate(
                 ['peserta_didik_id'=>$peserta->id,'periode_nilai_id'=>$request->periode_nilai_id],
                 ['nilai_akhir'=>$nilaiAkhir,'penjelasan'=>$request->penjelasan,'rekomendasi'=>$request->rekomendasi,'input_oleh'=>auth()->id()]

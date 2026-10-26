@@ -25,6 +25,21 @@ class NilaiKepribadian extends Model {
     }
 
     /**
+     * NILAI AWAL NPK sesuai jenjang sekolah (Revisi 25 Oktober 2026):
+     * - Sekolah Perwira (jenjang 'perwira')  → 80
+     * - Bintara / Tamtama / PNS / lainnya     → 75
+     * Sebelumnya hardcoded 75 di semua tempat sehingga sekolah perwira
+     * ikut terhitung mulai dari 75.
+     *
+     * @param mixed $angkatan Model Angkatan (relasi skadik bobelum belum di-load)
+     */
+    public static function nilaiAwalUntukAngkatan($angkatan): int
+    {
+        $skadik = $angkatan?->skadik ?? null;
+        return $skadik ? $skadik->starting_npk : 75;
+    }
+
+    /**
      * Revisi 30 September 2026 — PERIODE NPK TERAKHIR utk satu angkatan.
      * Dipakai sebagai keterangan "Sumber NPK" saat NPP memakai mode
      * "Periode Terakhir" (default).
@@ -95,6 +110,7 @@ class NilaiKepribadian extends Model {
     // Hitung ulang nilai akhir dari detail
     public function hitungNilaiAkhir(): float {
         $totalPoin = $this->detail->sum('poin');
-        return round(75 + $totalPoin, 2);
+        $nilaiAwal = self::nilaiAwalUntukAngkatan($this->peserta?->angkatan);
+        return round($nilaiAwal + $totalPoin, 2);
     }
 }

@@ -67,8 +67,13 @@
      dihapus permanen beserta seluruh data nilainya langsung dari sini,
      sehingga tidak tampil lagi di tabel report.
      Revisi 2 Oktober 2026: SUPERADMIN dapat MENGEDIT periode (label & rentang
-     tanggal) tanpa menghapus data nilai di dalamnya. --}}
-@if((auth()->user()->isAdminKepribadian() || auth()->user()->canSeeAll()) && $periodeKelola->count() > 0)
+     tanggal) tanpa menghapus data nilai di dalamnya.
+     Revisi 6 Oktober 2026: kartu ini kini SELALU tampil (setelah 🔍 Tampilkan)
+     meskipun belum ada periode terdaftar — sebelumnya kartu hilang diam-diam
+     utk sekolah/angkatan tanpa data periode, sehingga tombol Edit Periode
+     terkesan "hanya ada di sekolah tertentu". Kartu yg sama juga kini
+     tersedia di halaman Input NPK (kepribadian.index) agar GLOBAL. --}}
+@if(auth()->user()->isAdminKepribadian() || auth()->user()->canSeeAll())
 <details class="card" style="margin-bottom:14px;border:1px solid #fecaca;background:#fff7f7">
   <summary style="cursor:pointer;font-weight:600;font-size:13px;color:#b91c1c;padding:4px 0">
     🧹 Kelola Periode ({{ auth()->user()->isSuperAdmin() ? 'Edit + ' : '' }}Hapus Permanen) — {{$periodeKelola->count()}} periode terdaftar
@@ -83,6 +88,7 @@
     @endif
   </div>
   <div class="table-wrap" style="margin-top:10px">
+    @if($periodeKelola->count() > 0)
     <table>
       <thead>
         <tr>
@@ -128,17 +134,35 @@
         @endforeach
       </tbody>
     </table>
+    @else
+    <div class="empty-state" style="padding:24px">
+      Belum ada periode terdaftar untuk <strong>{{ $angkatan?->skadik?->nama ?? 'sekolah ini' }}, Angkatan {{ $angkatan?->nomor_angkatan ?? '-' }}</strong>
+      — tidak ada periode yang bisa diedit/dihapus dari sini.
+      <a href="{{ route('kepribadian.index', ['skadik_id' => $skadikId, 'angkatan_id' => $angkatanId]) }}" style="color:#4f46e5">→ Kelola periode di halaman Input NPK</a>
+    </div>
+    @endif
   </div>
 </details>
 @endif
 
 
-{{-- Metrik — Revisi 2 Oktober 2026: acuan NPK kini AKUMULATIF (Σ) bukan rata-rata --}}
+{{-- Metrik — Revisi 19 Oktober 2026: acuan ranking = NPK PERIODE TERAKHIR
+     (nilai yang masuk ke NPP), akumulatif hanya informasi tambahan --}}
 <div class="metric-grid" style="margin-bottom:16px">
   <div class="metric-card"><div class="metric-label">Total Peserta</div><div class="metric-value">{{ $data->count() }}</div></div>
   <div class="metric-card"><div class="metric-label">Total Periode</div><div class="metric-value">{{ $periodes->count() }}</div></div>
+  <div class="metric-card"><div class="metric-label">NPK Terakhir Tertinggi @if($periodes->isNotEmpty())({{ $periodes->last()->label }})@endif</div><div class="metric-value" style="color:#059669">{{ $data->filter(fn($b) => $b['npk_terakhir'] !== null)->count() > 0 ? round($data->max(fn($b) => $b['npk_terakhir'] ?? 0), 2) : '—' }}</div></div>
   <div class="metric-card"><div class="metric-label">Total Akumulatif Angkatan</div><div class="metric-value" style="color:#2563eb">{{ $data->filter(fn($b) => $b['akumulatif'] !== null)->count() > 0 ? number_format($data->sum(fn($b) => $b['akumulatif'] ?? 0), 2) : '—' }}</div></div>
-  <div class="metric-card"><div class="metric-label">Akumulatif Tertinggi</div><div class="metric-value" style="color:#059669">{{ $data->max('akumulatif') ? round($data->max('akumulatif'), 2) : '—' }}</div></div>
+</div>
+
+{{-- Revisi 19 Oktober 2026: info acuan ranking — selaras dengan permintaan
+     WingDik: rank NPK memakai nilai periode TERAKHIR karena nilai tsb yang
+     dipakai sebagai komponen NPK pada perhitungan NPP. --}}
+<div class="card" style="margin-bottom:14px;padding:10px 14px;background:#eef2ff;border:1px solid #c7d2fe;font-size:12px;color:#3730a3;line-height:1.6">
+  ℹ️ <strong>Ranking diurutkan berdasarkan NPK PERIODE TERAKHIR</strong>
+  @if($periodes->isNotEmpty())(kolom ungu <strong>"NPK Terakhir" — {{ $periodes->last()->label }}</strong>)@endif
+  — nilai yang sama persis dengan yang masuk sebagai komponen NPK pada perhitungan <strong>NPP</strong>.
+  Kolom <strong>Akumulatif</strong> (Σ seluruh periode) tetap ditampilkan sebagai informasi tambahan, bukan acuan ranking.
 </div>
 
 {{-- Tabel --}}
@@ -154,6 +178,8 @@
           @foreach($periodes as $per)
             <th style="text-align:center;min-width:80px">{{ $per->label }}</th>
           @endforeach
+          {{-- Revisi 19 Oktober 2026: kolom ACUAN RANKING = NPK periode terakhir --}}
+          <th style="text-align:center;min-width:90px;background:#eef2ff;color:#3730a3">⭐ NPK Terakhir<br><span style="font-weight:400;font-size:10px">(acuan rank — masuk NPP)</span></th>
           <th style="text-align:center;background:#ffffff;min-width:80px">Akumulatif</th>
           <th>Aksi</th>
         </tr>
@@ -170,8 +196,11 @@
             <td style="text-align:center">
               @if($n !== null)
                 @php
-                  $color = $n >= 78 ? '#059669' : ($n >= 76 ? '#2563eb' : ($n >= 75 ? '#d97706' : '#dc2626'));
-                  $bg = $n >= 78 ? '#ecfdf5' : ($n >= 76 ? '#eff6ff' : ($n >= 75 ? '#fffbeb' : '#fef2f2'));
+                  /* Revisi 25 Okt 2026: skala warna relatif thd nilai awal NPK
+                     (80 Sekolah Perwira / 75 Bintara & lainnya) — dulu absolut 75/76/78 */
+                  $na = $angkatan?->skadik?->starting_npk ?? 75;
+                  $color = $n >= $na+3 ? '#059669' : ($n >= $na+1 ? '#2563eb' : ($n >= $na ? '#d97706' : '#dc2626'));
+                  $bg = $n >= $na+3 ? '#ecfdf5' : ($n >= $na+1 ? '#eff6ff' : ($n >= $na ? '#fffbeb' : '#fef2f2'));
                 @endphp
                 <span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:500;background:{{ $bg }};color:{{ $color }}">{{ round($n,2) }}</span>
               @else
@@ -179,9 +208,18 @@
               @endif
             </td>
           @endforeach
+          {{-- Revisi 19 Oktober 2026: nilai NPK periode terakhir — ACUAN RANKING
+               (nilai yang dipakai sebagai komponen NPK pada NPP). --}}
+          <td style="text-align:center;background:#eef2ff">
+            @if(($row['npk_terakhir'] ?? null) !== null)
+              <strong style="font-size:14px;color:#4338ca">{{ round($row['npk_terakhir'], 2) }}</strong>
+            @else
+              <span style="color:#999">—</span>
+            @endif
+          </td>
           <td style="text-align:center;background:#ffffff">
-            {{-- Revisi 2 Oktober 2026: AKUMULATIF (Σ seluruh periode) — pengganti
-                 rata-rata sebagai acuan urutan ranking NPK. --}}
+            {{-- Akumulatif (Σ seluruh periode) — informasi tambahan, BUKAN
+                 acuan ranking sejak Revisi 19 Oktober 2026. --}}
             <strong style="font-size:14px;color:#2563eb">{{ $row['akumulatif'] ?? '—' }}</strong>
           </td>
           <td>
@@ -215,6 +253,8 @@
             @endphp
             <td style="text-align:center;font-weight:600;color:#2563eb">{{ $sumPer > 0 ? number_format($sumPer, 2) : '—' }}</td>
           @endforeach
+          {{-- Kolom NPK Terakhir tidak punya penjumlahan bermakna — dikosongkan --}}
+          <td></td>
           <td style="text-align:center;font-weight:700;color:#2563eb;font-size:14px">{{ $data->filter(fn($b) => $b['akumulatif'] !== null)->count() > 0 ? number_format($data->sum(fn($b) => $b['akumulatif'] ?? 0), 2) : '—' }}</td>
           <td></td>
         </tr>

@@ -39,7 +39,7 @@
           </label>
           @endforeach
         </div>
-        <span style="font-size:11px;color:#aaa">Perwira: starting NPK 80 | Bintara / Tamtama / PNS: starting NPK 70</span>
+        <span style="font-size:11px;color:#aaa">Perwira: starting NPK 80 | Bintara / Tamtama / PNS: starting NPK 75</span>
       </div>
       <div class="form-group">
         <label>Jenis Pendidikan <span style="color:#dc2626">*</span></label>

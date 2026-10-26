@@ -36,7 +36,7 @@
       <span style="font-size:10px;opacity:.7">({{ $poin }})</span>
     </span>
     @endforeach
-    <span style="margin-left:auto;font-size:12px;color:#888">Nilai awal: <strong>75</strong></span>
+    <span style="margin-left:auto;font-size:12px;color:#888">Nilai awal: <strong>{{ $nilaiAwal }}</strong>@if($nilaiAwal == 80) <span style="font-size:10px;color:#4f46e5;font-weight:600">(Sekolah Perwira)</span>@endif</span>
   </div>
 
   <form method="POST" action="{{ route('kepribadian.store', $peserta) }}" id="form-kep">
@@ -97,11 +97,11 @@
           <tfoot>
             <tr style="background:#f5f5ff">
               <td colspan="2" style="padding:10px 12px;font-weight:600;color:#4f46e5">
-                Nilai Akhir = 75 + total poin
+                Nilai Akhir = {{ $nilaiAwal }} + total poin
               </td>
               <td colspan="5" style="text-align:right;padding:10px 16px">
                 <span style="font-size:22px;font-weight:700;color:#4f46e5" id="preview-nilai">
-                  {{ $existing ? $existing->nilai_akhir : '75.00' }}
+                  {{ $existing ? $existing->nilai_akhir : number_format($nilaiAwal, 2) }}
                 </span>
               </td>
             </tr>
@@ -154,6 +154,8 @@
 </style>
 <script>
 const poin = { KS: -0.5, K: -0.25, C: 0, B: 0.25, BS: 0.5 };
+// Nilai awal NPK sesuai jenjang sekolah (80 Perwira / 75 Bintara dll.)
+const NILAI_AWAL = {{ (int) $nilaiAwal }};
 
 // Fungsi update tampilan label (centang)
 function updateCheckDisplay() {
@@ -177,7 +179,7 @@ function hitungNilai() {
   document.querySelectorAll('.krit-radio-hidden:checked').forEach(r => {
     total += poin[r.value] || 0;
   });
-  document.getElementById('preview-nilai').textContent = (75 + total).toFixed(2);
+  document.getElementById('preview-nilai').textContent = (NILAI_AWAL + total).toFixed(2);
 }
 
 // Event listener untuk semua radio

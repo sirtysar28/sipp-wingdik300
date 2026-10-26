@@ -122,13 +122,14 @@ class Skadik extends Model {
     ];
 
     /**
-     * Nilai awal NPK berdasarkan jenjang:
+     * Nilai awal NPK berdasarkan jenjang sekolah:
      * - perwira = 80
-     * - bintara / tamtama / pns = 70
+     * - bintara / tamtama / pns = 75
+     * (Revisi 25 Oktober 2026: selain perwira awalnya salah 70 → 75)
      */
     public function getStartingNpkAttribute(): int
     {
-        return $this->jenjang === 'perwira' ? 80 : 70;
+        return $this->jenjang === 'perwira' ? 80 : 75;
     }
 
     public function getJenjangLabelAttribute(): string

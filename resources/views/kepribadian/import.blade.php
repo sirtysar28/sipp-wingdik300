@@ -116,7 +116,7 @@
           <tr><td>C</td><td>Pangkat</td><td style="color:#aaa">Tidak digunakan untuk identifikasi</td></tr>
           <tr><td>D</td><td><span class="badge badge-blue">NRP</span></td><td style="color:#059669;font-weight:500">Kunci identifikasi peserta</td></tr>
           <tr><td>E</td><td><span class="badge badge-blue">NOSIS</span></td><td style="color:#059669;font-weight:500">Kunci identifikasi (jika NRP kosong)</td></tr>
-          <tr><td>F</td><td>Nilai Awal</td><td style="color:#aaa">Tidak perlu diubah (selalu 75)</td></tr>
+          <tr><td>F</td><td>Nilai Awal</td><td style="color:#aaa">Tidak perlu diubah (otomatis: 80 Sekolah Perwira / 75 Bintara &amp; lainnya)</td></tr>
           <tr><td>G–P</td><td><span class="badge badge-amber">10 Aspek</span></td><td style="color:#059669;font-weight:500">Isi dengan BS / B / C / K / KS</td></tr>
           <tr><td>Q</td><td>JML</td><td style="color:#aaa">Tidak perlu diisi — dihitung otomatis</td></tr>
           <tr><td>R</td><td>RNKG</td><td style="color:#aaa">Tidak perlu diisi — dihitung otomatis</td></tr>
@@ -136,8 +136,8 @@
         @endforeach
       </div>
       <div style="font-size:11px;color:#aaa;margin-top:10px">
-        Nilai akhir = 75 + jumlah poin semua aspek &nbsp;|&nbsp;
-        Maks: 80 (semua BS) &nbsp;|&nbsp; Min: 70 (semua KS)
+        Nilai akhir = nilai awal (<strong>80</strong> Sekolah Perwira / <strong>75</strong> Bintara &amp; lainnya) + jumlah poin semua aspek &nbsp;|&nbsp;
+        Maks: nilai awal + 5 (semua BS) &nbsp;|&nbsp; Min: nilai awal − 5 (semua KS)
       </div>
     </div>
   </div>

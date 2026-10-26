@@ -1,7 +1,7 @@
 <?php
 namespace App\Imports;
 
-use App\Models\{PesertaDidik, NilaiKepribadian, DetailKepribadian, AspekKepribadian};
+use App\Models\{Angkatan, PesertaDidik, NilaiKepribadian, DetailKepribadian, AspekKepribadian};
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
@@ -13,6 +13,9 @@ class KepribadianImport
     protected $skippedCount  = 0;
     protected $errors        = [];
     protected $aspekList;
+    // Revisi 25 Oktober 2026: nilai awal NPK per jenjang sekolah
+    // (80 utk Sekolah Perwira, 75 utk Bintara/Tamtama/PNS — dulu hardcode 75)
+    protected $nilaiAwal = 75;
 
     const KRITERIA_VALID = ['BS', 'B', 'C', 'K', 'KS'];
 
@@ -22,6 +25,9 @@ class KepribadianImport
         $this->angkatanId  = $angkatanId;
         AspekKepribadian::ensureSeeded();
         $this->aspekList   = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+        $this->nilaiAwal   = NilaiKepribadian::nilaiAwalUntukAngkatan(
+            Angkatan::with('skadik')->find($angkatanId)
+        );
     }
 
     public function import($filePath)
@@ -126,12 +132,12 @@ class KepribadianImport
                 $kriteriaData[$aspekId] = $kriteria;
             }
 
-            // Hitung nilai akhir
+            // Hitung nilai akhir (nilai awal mengikuti jenjang sekolah)
             $totalPoin = 0;
             foreach ($kriteriaData as $aspekId => $kriteria) {
                 $totalPoin += NilaiKepribadian::poinKriteria($kriteria);
             }
-            $nilaiAkhir = round(75 + $totalPoin, 2);
+            $nilaiAkhir = round($this->nilaiAwal + $totalPoin, 2);
 
             // Simpan ke database
             try {

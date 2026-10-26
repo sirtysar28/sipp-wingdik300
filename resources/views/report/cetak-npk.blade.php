@@ -67,12 +67,25 @@
     Angkatan {{ $angkatan->nomor_angkatan }} — Tahun Masuk {{ $angkatan->tahun_masuk }}
     @if($angkatan->jurusan) | {{ $angkatan->jurusan }} @endif
   </div>
+  {{-- Revisi 19 Oktober 2026: keterangan acuan ranking — NPK periode terakhir
+       (nilai yang sama yang dipakai sebagai komponen NPK pada NPP). --}}
+  @if($periodes->isNotEmpty())
+  <div style="font-size:8pt;margin-top:4px;color:#333">
+    * Ranking diurutkan berdasarkan nilai NPK <strong>periode terakhir ({{ $periodes->last()->label }})</strong>
+    — nilai yang dipakai sebagai komponen NPK pada perhitungan NPP. Kolom Akumulatif hanya informasi tambahan.
+  </div>
+  @endif
 </div>
 
 @php
   // Hitung ringkasan nilai akhir per peserta untuk rekap utama.
-  // Revisi 2 Oktober 2026: acuan ranking = AKUMULATIF (Σ periode), bukan rata-rata.
+  // Revisi 19 Oktober 2026: acuan ranking = NPK PERIODE TERAKHIR (nilai
+  // yang masuk ke perhitungan NPP), BUKAN akumulatif (Σ seluruh periode).
+  // Kolom Akumulatif tetap dicetak sebagai informasi tambahan.
   $nPer = $periodes->count();
+  $npkTerakhirMap = \App\Models\NilaiKepribadian::npkUntukNppPerPeserta(
+      $pesertaList->pluck('id'), null, $angkatan->id
+  );
   $sorted = [];
   foreach ($pesertaList as $p) {
     $vals = []; $total = 0; $cnt = 0;
@@ -82,9 +95,14 @@
       $vals[] = $v;
       if ($v !== null) { $total += $v; $cnt++; }
     }
-    $sorted[] = ['peserta' => $p, 'vals' => $vals, 'akum' => $cnt > 0 ? round($total, 2) : null];
+    $sorted[] = [
+      'peserta' => $p,
+      'vals'    => $vals,
+      'akum'    => $cnt > 0 ? round($total, 2) : null,
+      'akhir'   => $npkTerakhirMap[$p->id] ?? null,
+    ];
   }
-  usort($sorted, fn($a, $b) => ($b['akum'] ?? -999) <=> ($a['akum'] ?? -999));
+  usort($sorted, fn($a, $b) => ($b['akhir'] ?? -999) <=> ($a['akhir'] ?? -999));
 @endphp
 
 {{-- TABEL 1: REKAP NILAI AKHIR PER PERIODE --}}
@@ -98,6 +116,7 @@
       @foreach($periodes as $per)
       <th>{{ strtoupper($per->label) }}</th>
       @endforeach
+      <th style="background:#e8e8e8">NPK TERAKHIR<br><span style="font-weight:normal;font-size:7pt">(ACUAN RANK)</span></th>
       <th style="background:#ffffff">Akumulatif</th>
       <th style="width:30px">Rank</th>
     </tr>
@@ -112,6 +131,7 @@
       @foreach($s['vals'] as $v)
       <td>{{ $v ?? '-' }}</td>
       @endforeach
+      <td style="background:#e8e8e8" class="bold">{{ $s['akhir'] ?? '-' }}</td>
       <td style="background:#ffffff" class="bold">{{ $s['akum'] ?? '-' }}</td>
       <td class="bold">{{ $i + 1 }}</td>
     </tr>
@@ -123,7 +143,7 @@
 @if($aspekList->isNotEmpty() && $periodes->isNotEmpty())
 <div style="margin-top:18px"><strong>TABEL DETAIL PARAMETER NILAI KEPRIBADIAN</strong></div>
 <div style="font-size:8pt;color:#555;margin-bottom:4px">
-  Keterangan: BS = Baik Sekali (+0,5) · B = Baik (+0,25) · C = Cukup (0) · K = Kurang (-0,25) · KS = Kurang Sekali (-0,5) | Nilai Akhir = 75 + Σ poin
+  Keterangan: BS = Baik Sekali (+0,5) · B = Baik (+0,25) · C = Cukup (0) · K = Kurang (-0,25) · KS = Kurang Sekali (-0,5) | Nilai Akhir = {{ $angkatan->skadik->starting_npk ?? 75 }} + Σ poin
 </div>
 <table style="margin-top:6px">
   <thead>

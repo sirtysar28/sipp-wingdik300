@@ -8,7 +8,7 @@
     3. Identitas 3 kolom: Nama/No. Urut — Pangkat/NRP/Tahap — Sekolah/Nilai.
     4. Tabel aspek 7 kolom (NO | ASPEK | KS K C B BS) dengan tanda √.
     5. Kotak Keterangan (menempel di bawah tabel).
-    6. Penjelasan + Rekomendasi + rumus nilai (75 + Σpoin = nilai akhir).
+    6. Penjelasan + Rekomendasi + rumus nilai (nilai awal + Σpoin = nilai akhir).
     7. TTD kiri Mengetahui (Danskadik), kanan Penilai.
   Semua nilai bersumber dari data eksisting (tidak ada hardcode aspek/siswa).
   Table-based layout + ukuran mm agar stabil di print A4 maupun PDF.
@@ -237,8 +237,9 @@
     // Detail kriteria per aspek
     $detailMap = $current?->detail?->keyBy('aspek_kepribadian_id') ?? collect();
 
-    // Rumus nilai: 75 + Σpoin
-    $nilaiAwal  = 75;
+    // Rumus nilai: nilai awal + Σpoin
+    // (Revisi 25 Oktober 2026: 80 utk Sekolah Perwira, 75 utk Bintara/Tamtama/PNS)
+    $nilaiAwal  = $angkatan?->skadik?->starting_npk ?? 75;
     $penambahan = (float) ($current?->detail?->sum('poin') ?? 0);
     $nilaiAkhir = $current ? (float) $current->nilai_akhir : $nilaiAwal + $penambahan;
 
@@ -410,7 +411,7 @@
     <div class="notes">
         <div class="notes-title">Keterangan:</div>
         <ul class="notes-list">
-            <li>Nilai Awal Kepribadian Siswa Ba/Ta adalah 75.</li>
+            <li>Nilai Awal Kepribadian Siswa {{ $nilaiAwal == 80 ? 'Pa (Perwira)' : 'Ba/Ta' }} adalah {{ $nilaiAwal }}.</li>
             <li>Penambahan/Pengurangan Penilaian: BS (+0,5), B (+0,25), C (0), K (-0,25), KS (-0,5).</li>
             <li><strong>BS (Baik Sekali)</strong>: Siswa menunjukkan perilaku kepribadian sesuai dengan aspek yang dibahas berulang kali dalam frekuensi yang relatif sering atau memiliki kepribadian yang kuat dalam aspek tertentu.</li>
             <li><strong>B (Baik)</strong>: Siswa menunjukkan perilaku kepribadian sesuai dengan aspek yang dibahas satu sampai beberapa kali dalam frekuensi yang relatif sedang.</li>
