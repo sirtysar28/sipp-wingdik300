@@ -176,6 +176,7 @@ class NilaiSamaptaController extends Controller
         ]);
 
         $angkatanId   = $request->angkatan_id;
+        $angkatan     = Angkatan::find($angkatanId);
         $putaranLabel = NilaiSamapta::normalizePutaran($request->putaran_label);
 
         $spreadsheet = IOFactory::load($request->file('file')->getRealPath());
@@ -195,7 +196,11 @@ class NilaiSamaptaController extends Controller
 
             $peserta = null;
             if ($nrp !== '') {
-                $peserta = PesertaDidik::where('nrp', $nrp)->first();
+                // Revisi Okt 2026: NRP tidak lagi unik global (boleh dipakai lagi
+                // di sekolah lain dalam Wingdik 300) → cari NRP di-scope per
+                // angkatan, lalu per sekolah (Skadik) yang sama, JANGAN global.
+                $peserta = PesertaDidik::where('angkatan_id', $angkatanId)->where('nrp', $nrp)->first()
+                    ?? ($angkatan ? PesertaDidik::findByNrpInSkadik($nrp, $angkatan->skadik_id) : null);
             }
             if (!$peserta && $nama !== '') {
                 $peserta = PesertaDidik::where('angkatan_id', $angkatanId)

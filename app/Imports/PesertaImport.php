@@ -100,22 +100,23 @@ class PesertaImport
                 continue;
             }
 
-            // Cek duplikat NRP (GLOBAL — lintas angkatan). NRP tidak boleh sama
-            // dengan peserta lain; bila sama, tolak dengan pesan error.
+            // Cek duplikat NRP — dalam SATU ANGKATAN ini saja. Revisi 29 Okt 2026:
+            // NRP yang sama BOLEH dipakai peserta lain di angkatan lain (kasus
+            // mengulang/tidak lulus) maupun di sekolah lain dalam Wingdik 300.
             if (!empty($nrp)) {
-                $dupNrp = PesertaDidik::where('nrp', $nrp)->first();
+                $dupNrp = PesertaDidik::nrpUsedInAngkatan($nrp, $this->angkatanId);
                 if ($dupNrp) {
-                    $this->errors[] = "Baris {$rowNum}: NRP '{$nrp}' sudah dipakai peserta lain ('{$dupNrp->nama}'), dilewati. NRP yang baru diinput tidak bisa dipakai karena sudah ada yang punya.";
+                    $this->errors[] = "Baris {$rowNum}: NRP '{$nrp}' sudah dipakai peserta lain ('{$dupNrp->nama}') di angkatan ini, dilewati. NRP tidak boleh dobel dalam satu angkatan yang sama.";
                     $this->skippedCount++;
                     continue;
                 }
             }
 
-            // Cek duplikat Nosis (GLOBAL). Nosis tidak boleh sama dengan peserta
-            // lain; bila sama, tolak dengan pesan error.
-            $dupNosis = PesertaDidik::where('nosis', $nosis)->first();
-            if ($dupNosis) {
-                $this->errors[] = "Baris {$rowNum}: Nosis '{$nosis}' sudah dipakai peserta lain ('{$dupNosis->nama}'), dilewati. Nosis yang baru diinput tidak bisa dipakai karena sudah ada yang punya.";
+            // Cek Nosis — unik se-Wingdik 300, KECUALI kasus mengulang di
+            // sekolah yang sama dengan angkatan berbeda dan NRP yang sama
+            // (siswa tidak lulus mengulang) → BOLEH (revisi 29 Okt 2026).
+            if ($err = PesertaDidik::nosisConflict($nosis, $this->angkatanId, $nrp)) {
+                $this->errors[] = "Baris {$rowNum}: {$err}";
                 $this->skippedCount++;
                 continue;
             }

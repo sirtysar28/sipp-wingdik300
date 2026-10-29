@@ -51,20 +51,33 @@ class PesertaController extends Controller {
     }
 
     public function store(Request $request) {
-        // Validasi: NRP & Nosis harus unik (tidak boleh sama dengan peserta lain).
-        // Bila ada yang sama, validasi menolak & menampilkan pesan error bahwa
-        // nilai yg baru diinput tidak bisa dipakai karena sudah ada yang punya.
+        // Validasi (revisi 29 Okt 2026, berlaku se-Wingdik 300):
+        // - NRP & NOSIS tidak boleh dobel dalam SATU ANGKATAN.
+        // - NRP sama BOLEH di angkatan lain (mengulang) / sekolah lain.
+        // - NOSIS sama BOLEH hanya di angkatan lain SEKOLAH YANG SAMA dengan
+        //   syarat NRP juga sama (kasus TIDAK LULUS → mengulang).
         $data = $request->validate([
             'angkatan_id' => 'required|exists:angkatan,id',
             'nama'        => 'required|string|max:100',
-            'nrp'         => 'required|string|max:50|unique:peserta_didik,nrp',
+            'nrp'         => 'required|string|max:50',
             'pangkat'     => 'required|string|max:50',
-            'nosis'       => 'required|string|max:50|unique:peserta_didik,nosis',
+            'nosis'       => 'required|string|max:50',
         ], [
-            'nrp.unique'     => 'NRP "' . $request->nrp . '" sudah dipakai peserta lain. NRP yang baru diinput tidak bisa dipakai karena sudah ada yang punya.',
+            'nrp.required'   => 'NRP wajib diisi.',
             'nosis.required' => 'Nosis wajib diisi.',
-            'nosis.unique'   => 'Nosis "' . $request->nosis . '" sudah dipakai peserta lain. Nosis yang baru diinput tidak bisa dipakai karena sudah ada yang punya.',
         ]);
+
+        // Duplikat NRP dalam angkatan yang sama → tolak
+        $dupNrp = PesertaDidik::nrpUsedInAngkatan($data['nrp'], $data['angkatan_id']);
+        if ($dupNrp) {
+            return back()->withErrors(['nrp' => 'NRP "' . $data['nrp'] . '" sudah dipakai peserta lain ("' . $dupNrp->nama . '") di angkatan ini. NRP hanya tidak boleh dobel dalam satu angkatan yang sama.'])->withInput();
+        }
+
+        // Aturan nosis: tolak antar sekolah / antar peserta, BOLEH untuk
+        // siswa mengulang (sekolah sama, angkatan beda, NRP sama)
+        if ($err = PesertaDidik::nosisConflict($data['nosis'], $data['angkatan_id'], $data['nrp'])) {
+            return back()->withErrors(['nosis' => $err])->withInput();
+        }
 
         $peserta = PesertaDidik::create($data);
 
@@ -144,16 +157,28 @@ class PesertaController extends Controller {
             abort(403, 'Hanya admin yang dapat mengedit data peserta.');
         }
 
+        // Validasi (revisi 29 Okt 2026):
+        // - NRP tidak boleh dobel dalam SATU ANGKATAN peserta ini.
+        // - NOSIS boleh sama hanya bila dipakai dirinya di angkatan lain
+        //   sekolah yang sama dengan NRP sama (kasus mengulang/tidak lulus).
         $data = $request->validate([
             'nama'    => 'required|string|max:100',
             'pangkat' => 'required|string|max:50',
-            'nrp'     => 'required|string|max:50|unique:peserta_didik,nrp,'.$peserta->id,
-            'nosis'   => 'required|string|max:50|unique:peserta_didik,nosis,'.$peserta->id,
+            'nrp'     => 'required|string|max:50',
+            'nosis'   => 'required|string|max:50',
         ], [
-            'nrp.unique'     => 'NRP "' . $request->nrp . '" sudah dipakai peserta lain. NRP yang baru diinput tidak bisa dipakai karena sudah ada yang punya.',
+            'nrp.required'   => 'NRP wajib diisi.',
             'nosis.required' => 'Nosis wajib diisi.',
-            'nosis.unique'   => 'Nosis "' . $request->nosis . '" sudah dipakai peserta lain. Nosis yang baru diinput tidak bisa dipakai karena sudah ada yang punya.',
         ]);
+
+        $dupNrp = PesertaDidik::nrpUsedInAngkatan($data['nrp'], $peserta->angkatan_id, $peserta->id);
+        if ($dupNrp) {
+            return back()->withErrors(['nrp' => 'NRP "' . $data['nrp'] . '" sudah dipakai peserta lain ("' . $dupNrp->nama . '") di angkatan ini. NRP hanya tidak boleh dobel dalam satu angkatan yang sama.'])->withInput();
+        }
+
+        if ($err = PesertaDidik::nosisConflict($data['nosis'], $peserta->angkatan_id, $data['nrp'], $peserta->id)) {
+            return back()->withErrors(['nosis' => $err])->withInput();
+        }
         $peserta->update($data);
 
         return redirect()->route('peserta.show', $peserta)->with('success', 'Data peserta diperbarui.');

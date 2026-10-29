@@ -105,13 +105,13 @@
         <tbody>
           <tr><td>A</td><td><span class="badge badge-amber">Nama</span></td><td style="color:#059669;font-weight:500">Wajib diisi</td></tr>
           <tr><td>B</td><td><span class="badge badge-amber">Pangkat</span></td><td style="color:#059669;font-weight:500">Wajib diisi (contoh: Serda, Kopda)</td></tr>
-          <tr><td>C</td><td><span class="badge badge-amber">NRP</span></td><td style="color:#059669;font-weight:500">Wajib diisi (unik per peserta)</td></tr>
-          <tr><td>D</td><td><span class="badge badge-amber">Nosis</span></td><td style="color:#059669;font-weight:500">Wajib diisi (unik per peserta)</td></tr>
+          <tr><td>C</td><td><span class="badge badge-amber">NRP</span></td><td style="color:#059669;font-weight:500">Wajib diisi (tidak boleh dobel dalam satu angkatan — boleh sama untuk siswa mengulang / peserta sekolah lain dalam Wingdik 300)</td></tr>
+          <tr><td>D</td><td><span class="badge badge-amber">Nosis</span></td><td style="color:#059669;font-weight:500">Wajib diisi (unik se-Wingdik 300 — kecuali siswa mengulang di sekolah yang sama, tetap pakai nosis &amp; NRP yang sama)</td></tr>
         </tbody>
       </table>
     </div>
     <div style="margin-top:12px;font-size:11px;color:#aaa;border-top:1px solid #f0f0f5;padding-top:12px">
-      <strong>Catatan:</strong> Baris pertama dianggap header dan akan dilewati. NRP dan Nosis harus unik — bila ada yang sama dengan peserta lain, baris tersebut akan dilewati dan muncul pesan error.
+      <strong>Catatan:</strong> Baris pertama dianggap header dan akan dilewati. <strong>NRP</strong> &amp; <strong>Nosis</strong> tidak boleh dobel dalam satu angkatan yang sama. <strong>NRP</strong> yang sama boleh muncul di angkatan lain / sekolah lain dalam Wingdik 300. <strong>Nosis</strong> yang sama hanya boleh dipakai siswa yang <strong>mengulang</strong> (tidak lulus) di sekolah yang sama dengan angkatan berbeda — pastikan NRP-nya juga sama. Selain itu ditolak dan baris dilewati dengan pesan error.
     </div>
   </div>
 </div>

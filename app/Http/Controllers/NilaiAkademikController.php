@@ -289,10 +289,15 @@ class NilaiAkademikController extends Controller
 
             if ($nrp === '' && $nama === '') continue; // baris kosong
 
-            // Cocokkan peserta: NRP di angkatan → NRP global → nama persis → nama mirip
+            // Cocokkan peserta: NRP di angkatan → NRP di sekolah (Skadik) yang
+            // sama → nama persis → nama mirip.
+            // Revisi Okt 2026: NRP tidak lagi unik global (boleh dipakai lagi
+            // di sekolah lain dalam Wingdik 300), sehingga pencarian NRP
+            // HARUS di-scope per sekolah agar tidak menabrak peserta
+            // dari sekolah lain.
             $peserta = PesertaDidik::where('angkatan_id', $angkatanId)->where('nrp', $nrp)->first();
-            if (!$peserta && $nrp !== '') {
-                $peserta = PesertaDidik::where('nrp', $nrp)->first();
+            if (!$peserta && $nrp !== '' && $angkatan) {
+                $peserta = PesertaDidik::findByNrpInSkadik($nrp, $angkatan->skadik_id);
             }
             if (!$peserta && $nama !== '') {
                 $peserta = PesertaDidik::where('angkatan_id', $angkatanId)
