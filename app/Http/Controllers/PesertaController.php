@@ -79,7 +79,17 @@ class PesertaController extends Controller {
             return back()->withErrors(['nosis' => $err])->withInput();
         }
 
-        $peserta = PesertaDidik::create($data);
+        // Pengaman: bila DB server masih memakai index unique lama (migration
+        // 2026_10_29_* belum dijalankan), insert NRP/nosis ganda yang sah akan
+        // dilempar sebagai QueryException — tampilkan pesan yang bisa ditindaklanjuti.
+        try {
+            $peserta = PesertaDidik::create($data);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($msg = PesertaDidik::duplicateKeyMessage($e)) {
+                return back()->withErrors(['nrp' => $msg])->withInput();
+            }
+            throw $e;
+        }
 
         return redirect()->route('peserta.show', $peserta)->with('success', 'Peserta berhasil ditambahkan.');
     }
@@ -179,7 +189,14 @@ class PesertaController extends Controller {
         if ($err = PesertaDidik::nosisConflict($data['nosis'], $peserta->angkatan_id, $data['nrp'], $peserta->id)) {
             return back()->withErrors(['nosis' => $err])->withInput();
         }
-        $peserta->update($data);
+        try {
+            $peserta->update($data);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($msg = PesertaDidik::duplicateKeyMessage($e)) {
+                return back()->withErrors(['nrp' => $msg])->withInput();
+            }
+            throw $e;
+        }
 
         return redirect()->route('peserta.show', $peserta)->with('success', 'Data peserta diperbarui.');
     }

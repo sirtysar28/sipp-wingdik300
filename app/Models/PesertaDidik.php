@@ -122,6 +122,31 @@ class PesertaDidik extends Model {
     }
 
     /**
+     * Pesan ramah untuk error DUPLICATE KEY dari database.
+     *
+     * Terjadi bila kode revisi 29 Okt 2026 SUDAH ter-deploy tetapi migration
+     * penghapusan index unique GLOBAL pada kolom nrp/nosis BELUM dijalankan
+     * di server — insert NRP ganda lintas sekolah/angkatan yang sah menurut
+     * aturan aplikasi tetap ditolak oleh index lama di level DB.
+     *
+     * Return null bila exception bukan duplicate-key.
+     */
+    public static function duplicateKeyMessage(\Throwable $e): ?string
+    {
+        $msg = strtolower($e->getMessage());
+        $isDup = $e instanceof \Illuminate\Database\QueryException
+            && ($e->getCode() === '23000' || str_contains($msg, 'duplicate entry') || str_contains($msg, 'unique constraint failed'));
+        if (!$isDup) {
+            return null;
+        }
+
+        $kolom = str_contains($msg, 'nrp') ? 'NRP' : 'Nosis';
+        return "Data ini sah menurut aturan ({$kolom} boleh dipakai lagi di angkatan lain / sekolah lain dalam Wingdik 300), "
+            . "tetapi database masih memakai INDEX UNIQUE lama pada kolom {$kolom}. "
+            . 'Minta admin server menjalankan: php artisan migrate --force (migration 2026_10_29_*) lalu ulangi penyimpanan.';
+    }
+
+    /**
      * Cari peserta berdasarkan NRP dalam lingkup SATU SEKOLAH (Skadik).
      * NRP tidak lagi unik global, sehingga pencarian NRP global bisa salah
      * peserta (menabrak peserta sekolah lain) — selalu gunakan method ini.

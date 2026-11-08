@@ -129,6 +129,25 @@ try {
     check('NRP "123" tersimpan juga di Sekolah B — ' . $e->getMessage(), false);
 }
 
+echo "\n[6b] KASUS BAGUS (4 Nov 2026): NRP sama, NOSIS BARU, sekolah lain → BOLEH\n";
+check('nrpUsedInAngkatan(543377, B1) = null (NRP dipakai sekolah lain, bukan angkatan ini)', PesertaDidik::nrpUsedInAngkatan('543377', $angkB1->id) === null);
+$errBagus = PesertaDidik::nosisConflict('262650', $angkB1->id, '543377');
+check('nosisConflict(262650 baru, B1) = null (nosis beda → bebas)', $errBagus === null);
+try {
+    PesertaDidik::create(['angkatan_id' => $angkB1->id, 'nama' => 'Bagus Riandy Permana', 'nrp' => '543377', 'pangkat' => 'Serda', 'nosis' => '262650', 'aktif' => true]);
+    check('NRP 543377 + nosis baru 262650 TERSIMPAN di sekolah lain', PesertaDidik::where('nrp', '543377')->where('nosis', '262650')->exists());
+} catch (\Throwable $e) {
+    check('NRP 543377 tersimpan — ' . $e->getMessage(), false);
+}
+
+echo "\n[6c] Pengaman duplicate-key: index unique lama belum di-migrate → pesan jelas\n";
+$dkErr = new Illuminate\Database\QueryException('mysql', 'insert into peserta_didik (nrp) values (?)', [], new PDOException("SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry '543377' for key 'peserta_didik_nrp_unique'", 23000));
+$dkMsg = PesertaDidik::duplicateKeyMessage($dkErr);
+check('duplicateKeyMessage() aktif untuk Duplicate entry nrp', $dkMsg !== null && str_contains($dkMsg, 'php artisan migrate'));
+$dkSqlite = new Illuminate\Database\QueryException('sqlite', 'insert', [], new PDOException('SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: peserta_didik.nosis', 23000));
+check('duplicateKeyMessage() aktif untuk UNIQUE constraint nosis (sqlite)', str_contains(PesertaDidik::duplicateKeyMessage($dkSqlite) ?? '', 'Nosis'));
+check('duplicateKeyMessage() abaikan exception biasa', PesertaDidik::duplicateKeyMessage(new RuntimeException('kolom tidak dikenal')) === null);
+
 echo "\n[7] Pencarian NRP ter-scope per sekolah (fallback import nilai)\n";
 check('findByNrpInSkadik(A) → peserta Sekolah A', PesertaDidik::findByNrpInSkadik('123', $skadikA->id)?->angkatan?->skadik_id == $skadikA->id);
 check('findByNrpInSkadik(B) → peserta Sekolah B', PesertaDidik::findByNrpInSkadik('123', $skadikB->id)?->angkatan?->skadik_id == $skadikB->id);

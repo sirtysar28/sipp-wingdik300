@@ -132,6 +132,13 @@ class PesertaImport
                     'aktif'       => true,
                 ]);
                 $this->importedCount++;
+            } catch (\Illuminate\Database\QueryException $e) {
+                if ($msg = PesertaDidik::duplicateKeyMessage($e)) {
+                    $this->errors[] = "Baris {$rowNum}: {$msg}";
+                } else {
+                    $this->errors[] = "Baris {$rowNum}: Gagal menyimpan '{$nama}' ({$e->getMessage()})";
+                }
+                $this->skippedCount++;
             } catch (\Exception $e) {
                 $this->errors[] = "Baris {$rowNum}: Gagal menyimpan '{$nama}' ({$e->getMessage()})";
                 $this->skippedCount++;
