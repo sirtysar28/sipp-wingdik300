@@ -13,7 +13,8 @@
   <div class="card">
     <div class="card-title">Daftar Aspek ({{ $aspek->count() }})</div>
     <div style="font-size:12px;color:#888;margin-bottom:14px">
-      Aspek yang dinonaktifkan tidak akan muncul di form input, tapi data lama tetap tersimpan.
+      Aspek yang dinonaktifkan tidak akan muncul di form input, tapi data lama tetap tersimpan.<br>
+      <span style="color:#b45309">Aspek ber-badge <b>“Khusus Perwira”</b> hanya muncul di NPK golongan Perwira (total 15 aspek); Tamtama/Bintara/PNS tetap 10 aspek eksisting.</span>
     </div>
 
     <div style="display:grid;gap:8px">
@@ -24,7 +25,14 @@
             {{ $a->nomor }}
           </span>
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:600;color:{{ $a->aktif?'#1a1a2e':'#b91c1c' }}">{{ $a->nama }}</div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:13px;font-weight:600;color:{{ $a->aktif?'#1a1a2e':'#b91c1c' }}">{{ $a->nama }}</span>
+              @if($a->jenjang === 'perwira')
+              <span style="padding:1px 8px;border-radius:99px;font-size:10px;font-weight:700;background:#fffbeb;color:#b45309;border:1px solid #fde68a">★ KHUSUS PERWIRA</span>
+              @else
+              <span style="padding:1px 8px;border-radius:99px;font-size:10px;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0">Semua Golongan</span>
+              @endif
+            </div>
             @if($a->deskripsi)
             <div style="font-size:11px;color:#aaa;margin-top:2px;line-height:1.5">{{ $a->deskripsi }}</div>
             @endif
@@ -54,6 +62,13 @@
               <label>Deskripsi</label>
               <textarea name="deskripsi" rows="2">{{ $a->deskripsi }}</textarea>
             </div>
+            <div class="form-group">
+              <label>Berlaku Untuk</label>
+              <select name="jenjang">
+                <option value="" {{ $a->jenjang ? '' : 'selected' }}>Semua Golongan (Tamtara / Bintara / Perwira / PNS)</option>
+                <option value="perwira" {{ $a->jenjang === 'perwira' ? 'selected' : '' }}>Khusus Perwira</option>
+              </select>
+            </div>
             <div style="display:flex;gap:8px">
               <button type="submit" class="btn btn-primary btn-sm">Simpan</button>
               <button type="button" onclick="document.getElementById('edit-{{ $a->id }}').style.display='none'"
@@ -82,6 +97,13 @@
         <label>Deskripsi / Sub-aspek</label>
         <textarea name="deskripsi" rows="3"
           placeholder="Jelaskan indikator penilaian aspek ini...">{{ old('deskripsi') }}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Berlaku Untuk</label>
+        <select name="jenjang">
+          <option value="" {{ old('jenjang') ? '' : 'selected' }}>Semua Golongan (Tamtara / Bintara / Perwira / PNS)</option>
+          <option value="perwira" {{ old('jenjang') === 'perwira' ? 'selected' : '' }}>Khusus Perwira</option>
+        </select>
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%">+ Tambah Aspek</button>
     </form>

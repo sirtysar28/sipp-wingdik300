@@ -117,7 +117,7 @@
           <tr><td>D</td><td><span class="badge badge-blue">NRP</span></td><td style="color:#059669;font-weight:500">Kunci identifikasi peserta</td></tr>
           <tr><td>E</td><td><span class="badge badge-blue">NOSIS</span></td><td style="color:#059669;font-weight:500">Kunci identifikasi (jika NRP kosong)</td></tr>
           <tr><td>F</td><td>Nilai Awal</td><td style="color:#aaa">Tidak perlu diubah (otomatis: 80 Sekolah Perwira / 75 Bintara &amp; lainnya)</td></tr>
-          <tr><td>G–P</td><td><span class="badge badge-amber">10 Aspek</span></td><td style="color:#059669;font-weight:500">Isi dengan BS / B / C / K / KS</td></tr>
+          <tr><td>G dst.</td><td><span class="badge badge-amber">Aspek (10 / 15)</span></td><td style="color:#059669;font-weight:500">Isi dengan BS / B / C / K / KS — 10 aspek (Tamtara/Bintara/PNS) atau 15 aspek khusus Sekolah Perwira (ikut template yang diunduh)</td></tr>
           <tr><td>Q</td><td>JML</td><td style="color:#aaa">Tidak perlu diisi — dihitung otomatis</td></tr>
           <tr><td>R</td><td>RNKG</td><td style="color:#aaa">Tidak perlu diisi — dihitung otomatis</td></tr>
         </tbody>

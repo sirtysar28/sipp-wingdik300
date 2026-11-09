@@ -24,10 +24,12 @@ class KepribadianImport
         $this->periodeId   = $periodeId;
         $this->angkatanId  = $angkatanId;
         AspekKepribadian::ensureSeeded();
-        $this->aspekList   = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
-        $this->nilaiAwal   = NilaiKepribadian::nilaiAwalUntukAngkatan(
-            Angkatan::with('skadik')->find($angkatanId)
-        );
+        $angkatan      = Angkatan::with('skadik')->find($angkatanId);
+        // Revisi 9 November 2026: aspek menyesuaikan golongan sekolah angkatan —
+        // perwira 15 aspek (10 universal + 5 khusus perwira), lainnya 10,
+        // sehingga mapping kolom Excel otomatis cocok dgn template.
+        $this->aspekList   = AspekKepribadian::untukAngkatan($angkatan)->get();
+        $this->nilaiAwal   = NilaiKepribadian::nilaiAwalUntukAngkatan($angkatan);
     }
 
     public function import($filePath)
@@ -53,7 +55,8 @@ class KepribadianImport
             $dataStart = 7;
         }
 
-        // Map kolom: cari posisi NRP, Nama, Nosis, dan 10 aspek
+        // Map kolom: cari posisi NRP, Nama, Nosis, dan aspek (jumlah menyesuaikan
+        // golongan: 10 umum / 15 utk Sekolah Perwira — revisi 9 Nov 2026)
         $colNrp   = null;
         $colNosis = null;
         $colAspek = []; // [aspek_id => kolom_excel]

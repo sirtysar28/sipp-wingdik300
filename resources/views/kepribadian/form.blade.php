@@ -44,7 +44,12 @@
     <input type="hidden" name="periode_nilai_id" value="{{ $periodeId }}">
 
     <div class="card" style="margin-bottom:16px">
-      <div class="card-title">10 Aspek Kepribadian</div>
+      <div class="card-title">{{ $aspekList->count() }} Aspek Kepribadian</div>
+      @if(($peserta->angkatan?->skadik?->jenjang ?? null) === 'perwira' && $aspekList->count() > 10)
+      <div style="font-size:11px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;margin-bottom:10px">
+        ★ Sekolah Perwira: penilaian memuat <b>{{ $aspekList->count() }} aspek</b> — 10 aspek umum + {{ $aspekList->count() - 10 }} aspek tambahan khusus Perwira.
+      </div>
+      @endif
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse">
           <thead>

@@ -216,13 +216,15 @@ class KepribadianController extends Controller
     {
         $periodeId      = $request->get('periode_id');
         $periode        = PeriodeNilai::find($periodeId);
-        $aspekList      = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+        // Revisi 25 Oktober 2026: nilai awal NPK mengikuti jenjang sekolah —
+        // 80 utk Sekolah Perwira, 75 utk Bintara/Tamtama/PNS (sebelumnya hardcode 75).
+        // Revisi 9 November 2026: aspek menyesuaikan golongan — perwira dapat
+        // 15 aspek (10 universal + 5 khusus perwira), lainnya tetap 10.
+        $peserta->load('angkatan.skadik');
+        $aspekList      = AspekKepribadian::untukAngkatan($peserta->angkatan)->get();
         $existing       = NilaiKepribadian::where('peserta_didik_id', $peserta->id)->where('periode_nilai_id', $periodeId)->with('detail')->first();
         $existingDetail = $existing ? $existing->detail->keyBy('aspek_kepribadian_id') : collect();
 
-        // Revisi 25 Oktober 2026: nilai awal NPK mengikuti jenjang sekolah —
-        // 80 utk Sekolah Perwira, 75 utk Bintara/Tamtama/PNS (sebelumnya hardcode 75).
-        $peserta->load('angkatan.skadik');
         $nilaiAwal = NilaiKepribadian::nilaiAwalUntukAngkatan($peserta->angkatan);
 
         return view('kepribadian.form', compact('peserta','periode','periodeId','aspekList','existing','existingDetail','nilaiAwal'));
@@ -256,7 +258,9 @@ class KepribadianController extends Controller
         $riwayat   = NilaiKepribadian::where('peserta_didik_id', $peserta->id)->with(['periode','detail.aspek'])->orderBy('periode_nilai_id')->get();
         $current   = $riwayat->where('periode_nilai_id', $periodeId)->first();
         AspekKepribadian::ensureSeeded();
-        $aspekList = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+        // Revisi 9 November 2026: aspek menyesuaikan golongan sekolah peserta
+        // (perwira = 15 aspek, tamtama/bintara/PNS = 10 aspek eksisting).
+        $aspekList = AspekKepribadian::untukAngkatan($peserta->angkatan)->get();
         $grafikLabels = $riwayat->pluck('periode.label');
         $grafikNilai  = $riwayat->pluck('nilai_akhir');
         return view('kepribadian.show', compact('peserta','periodes','periodeId','riwayat','current','aspekList','grafikLabels','grafikNilai'));
@@ -283,7 +287,9 @@ class KepribadianController extends Controller
         $current   = $riwayat->where('periode_nilai_id', $periodeId)->first();
 
         AspekKepribadian::ensureSeeded();
-        $aspekList = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+        // Revisi 9 November 2026: aspek menyesuaikan golongan sekolah peserta
+        // (perwira = 15 aspek, tamtama/bintara/PNS = 10 aspek eksisting).
+        $aspekList = AspekKepribadian::untukAngkatan($angkatan)->get();
 
         // Penandatangan: kanan = pejabat laporan kepribadian, kiri = Danskadik
         // (pola sama dengan cetak NPK angkatan / report.cetak-npk).
@@ -303,14 +309,35 @@ class KepribadianController extends Controller
 
     public function aspekStore(Request $request)
     {
-        $request->validate(['nama'=>'required|string|max:100','deskripsi'=>'nullable|string|max:500']);
-        AspekKepribadian::create(['nomor'=>AspekKepribadian::max('nomor')+1,'nama'=>$request->nama,'deskripsi'=>$request->deskripsi,'aktif'=>true]);
+        // Revisi 9 November 2026: aspek baru bisa universal (semua golongan)
+        // ataupun khusus golongan tertentu ('perwira' — utk aspek 11–15).
+        $request->validate([
+            'nama'      => 'required|string|max:100',
+            'deskripsi' => 'nullable|string|max:500',
+            'jenjang'   => 'nullable|in:perwira',
+        ]);
+        AspekKepribadian::create([
+            'nomor'     => AspekKepribadian::max('nomor') + 1,
+            'nama'      => $request->nama,
+            'deskripsi' => $request->deskripsi,
+            'aktif'     => true,
+            'jenjang'   => $request->jenjang ?: null,
+        ]);
         return back()->with('success','Aspek berhasil ditambahkan.');
     }
 
     public function aspekUpdate(Request $request, AspekKepribadian $aspek)
     {
-        $aspek->update($request->only('nama','deskripsi'));
+        $request->validate([
+            'nama'      => 'required|string|max:100',
+            'deskripsi' => 'nullable|string|max:500',
+            'jenjang'   => 'nullable|in:perwira',
+        ]);
+        $aspek->update([
+            'nama'      => $request->nama,
+            'deskripsi' => $request->deskripsi,
+            'jenjang'   => $request->jenjang ?: null,
+        ]);
         return back()->with('success','Aspek diperbarui.');
     }
 
@@ -447,7 +474,9 @@ class KepribadianController extends Controller
         $angkatan   = Angkatan::with('skadik.lemdik')->find($angkatanId);
         $periode    = PeriodeNilai::find($periodeId);
         AspekKepribadian::ensureSeeded();
-        $aspekList  = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+        // Revisi 9 November 2026: template/ekspor Excel menyesuaikan golongan —
+        // perwira 15 kolom aspek (10 universal + 5 khusus), lainnya 10.
+        $aspekList  = AspekKepribadian::untukAngkatan($angkatan)->get();
         $peserta    = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')
             ->with(['nilaiKepribadian' => fn($q) => $q->where('periode_nilai_id', $periodeId)->with('detail')])->get();
 

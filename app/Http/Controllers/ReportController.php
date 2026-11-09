@@ -691,7 +691,9 @@ class ReportController extends Controller
         $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
         $periodes = PeriodeNilai::where('angkatan_id', $angkatanId)->orderBy('tanggal_mulai')->get();
         \App\Models\AspekKepribadian::ensureSeeded();
-        $aspekList = \App\Models\AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+        // Revisi 9 November 2026: aspek menyesuaikan golongan sekolah angkatan
+        // (perwira = 15 aspek, tamtama/bintara/PNS = 10 aspek eksisting).
+        $aspekList = \App\Models\AspekKepribadian::untukAngkatan($angkatan)->get();
 
         // Muat detail nilai kepribadian per peserta × periode × aspek
         $detailMap = [];
@@ -876,7 +878,9 @@ class ReportController extends Controller
 
             // ============ SHEET 2: DETAIL PARAMETER (spt Tabel 2 PDF) ============
             \App\Models\AspekKepribadian::ensureSeeded();
-            $aspekList = \App\Models\AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+            // Revisi 9 November 2026: aspek menyesuaikan golongan sekolah angkatan
+            // (perwira = 15 aspek, tamtama/bintara/PNS = 10 aspek eksisting).
+            $aspekList = \App\Models\AspekKepribadian::untukAngkatan($angkatan)->get();
 
             if ($aspekList->isNotEmpty() && $nPer > 0) {
                 $sh2 = $spreadsheet->createSheet()->setTitle('Detail Parameter');

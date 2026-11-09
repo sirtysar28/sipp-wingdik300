@@ -142,7 +142,9 @@ class PesertaController extends Controller {
         $riwayat   = NilaiKepribadian::where('peserta_didik_id', $peserta->id)->with(['periode','detail.aspek'])->orderBy('periode_nilai_id')->get();
         $current   = $riwayat->where('periode_nilai_id', $periodeId)->first();
         AspekKepribadian::ensureSeeded();
-        $aspekList = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+        // Revisi 9 November 2026: aspek menyesuaikan golongan sekolah peserta
+        // (perwira = 15 aspek, tamtara/bintara/PNS = 10 aspek eksisting).
+        $aspekList = AspekKepribadian::untukAngkatan($peserta->angkatan)->get();
         $grafikLabels = $riwayat->pluck('periode.label');
         $grafikNilai  = $riwayat->pluck('nilai_akhir');
         return view('peserta.show', compact('peserta','periodes','periodeId','riwayat','current','aspekList','grafikLabels','grafikNilai'));

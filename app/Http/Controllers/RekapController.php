@@ -27,7 +27,9 @@ class RekapController extends Controller
         $allPeriode  = PeriodeNilai::where('angkatan_id', $angkatanId)->orderBy('tanggal_mulai')->get();
         $allPeserta  = PesertaDidik::where('angkatan_id', $angkatanId)->orderBy('nama')->get();
         AspekKepribadian::ensureSeeded();
-        $aspekList   = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+        // Revisi 9 November 2026: aspek menyesuaikan golongan sekolah angkatan
+        // (perwira = 15 aspek, tamtama/bintara/PNS = 10 aspek eksisting).
+        $aspekList   = AspekKepribadian::untukAngkatan($angkatan)->get();
 
         // Filter periode range
         $periodeFrom = $request->get('periode_from', $allPeriode->first()?->id);
@@ -153,7 +155,9 @@ class RekapController extends Controller
         $pesertaId   = $request->get('peserta_id', 'semua');
         $periodeRange = $allPeriode->filter(fn($p) => $p->id >= $periodeFrom && $p->id <= $periodeTo)->values();
         AspekKepribadian::ensureSeeded();
-        $aspekList   = AspekKepribadian::where('aktif', true)->orderBy('nomor')->get();
+        // Revisi 9 November 2026: aspek menyesuaikan golongan sekolah angkatan
+        // (perwira = 15 aspek, tamtama/bintara/PNS = 10 aspek eksisting).
+        $aspekList   = AspekKepribadian::untukAngkatan($angkatan)->get();
 
         $pesertaList = PesertaDidik::where('angkatan_id', $angkatanId)
             ->when($pesertaId !== 'semua', fn($q) => $q->where('id', $pesertaId))
